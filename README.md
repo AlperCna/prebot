@@ -137,8 +137,29 @@ dotnet ef migrations add <Isim> --project src/PreBot.Core --output-dir Data/Migr
 
 Site ve bot açılışta veritabanını kendiliğinden günceller. Migration eklemeyi unutursan testler ve CI hata verir.
 
-**Sıradakiler:**
-- Discord botunu web havuzuna bağlama (ilanları sunuculara bağlantıyla taşıma)
+### 🤖 Discord botu sitenin içinde (önerilen)
+
+Bot ayrı bir program olarak da çalışabilir. Ama sitenin içinde çalıştırmak daha iyi, çünkü:
+- Tek süreç ve tek veritabanı kullanılır.
+- **Sitede açılan her ilan**, seçtiğin Discord kanallarına **"Sitede katıl"** bağlantısıyla duyurulur. Kimse etiketlenmez; bu bir bildirim değil, duyuru.
+
+Discord'u kullanmaya devam eden oyuncular böylece siteye yönlenir. Bütün slash komutları da aynen çalışır.
+
+1. Token'ı sitenin ayarlarına kaydet:
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\token-ayarla.ps1 -Proje web
+```
+
+2. Duyuru kanalını ayarla. Discord'da Geliştirici Modu açıkken kanala sağ tıkla, **Kanal Kimliğini Kopyala**'yı seç ve şunu çalıştır:
+
+```bash
+dotnet user-secrets set "Discord:FeedChannels" "KANAL_ID" --project src/PreBot.Web
+```
+
+3. Yayında `.env` dosyasına `DISCORD_BOT_TOKEN` yazman yeterli. Duyuru kanalı için `DISCORD_FEED_CHANNELS` (birden fazlaysa virgülle) ayarı ekle. Bağlantılar `https://ALANADI` adresine kendiliğinden yönlenir.
+
+Site ile botun bildirim dalgaları birbirine karışmaz: site yalnızca kendi ilanlarını, bot yalnızca Discord sunucularındaki ilanları işler.
 
 ## Discord botu komutları
 

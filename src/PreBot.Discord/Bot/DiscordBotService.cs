@@ -16,6 +16,21 @@ public sealed class DiscordOptions
     /// When empty, commands are registered globally (can take a while to appear).
     /// </summary>
     public ulong? GuildId { get; set; }
+
+    /// <summary>
+    /// Channels where listings opened on the website are announced with a "Sitede katıl" link:
+    /// comma-separated channel ids (Discord:FeedChannels = "123,456"). Empty = no announcements.
+    /// A plain string so an empty value in .env never breaks startup.
+    /// </summary>
+    public string? FeedChannels { get; set; }
+
+    public ulong[] FeedChannelIds =>
+        (FeedChannels ?? "")
+            .Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => ulong.TryParse(s, out var id) ? id : 0)
+            .Where(id => id != 0)
+            .Distinct()
+            .ToArray();
 }
 
 /// <summary>Connects to Discord, registers slash commands, and routes interactions to <see cref="PreModule"/>.</summary>

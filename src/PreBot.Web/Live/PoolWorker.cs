@@ -1,4 +1,5 @@
 using PreBot.Core.Notifications;
+using PreBot.Core.Domain;
 using PreBot.Core.Services;
 
 namespace PreBot.Web.Live;
@@ -25,7 +26,7 @@ public sealed class PoolWorker(
                 var sweep = await pre.SweepAsync(stoppingToken);
                 var changed = sweep.ExpiredAvailabilities > 0 || sweep.ExpiredListingIds.Count > 0;
 
-                foreach (var listingId in await pre.GetDueWaveListingIdsAsync(stoppingToken))
+                foreach (var listingId in await pre.GetDueWaveListingIdsAsync(onlyCommunity: Communities.Web, ct: stoppingToken))
                 {
                     await waves.RunAsync(listingId, stoppingToken);
                 }

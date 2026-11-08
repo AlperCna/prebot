@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using PreBot.Core.Domain;
 using PreBot.Core.Services;
 
 namespace PreBot.Bot;
@@ -34,7 +35,7 @@ public sealed class ExpiryWorker(
                     await notifier.RefreshAsync(listingId, stoppingToken);
                 }
 
-                foreach (var listingId in await pre.GetDueWaveListingIdsAsync(stoppingToken))
+                foreach (var listingId in await pre.GetDueWaveListingIdsAsync(exceptCommunity: Communities.Web, ct: stoppingToken))
                 {
                     await notifier.RunWaveAsync(listingId, stoppingToken);
                 }

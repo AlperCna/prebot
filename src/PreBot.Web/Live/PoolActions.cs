@@ -8,7 +8,8 @@ namespace PreBot.Web.Live;
 /// What the website's buttons do. Each action changes the data through <see cref="PreService"/>,
 /// sends notification waves where needed, and tells every open page to refresh.
 /// </summary>
-public sealed class PoolActions(PreService pre, WaveDispatcher waves, LiveUpdates live)
+public sealed class PoolActions(
+    PreService pre, WaveDispatcher waves, LiveUpdates live, IListingFeed feed, ILogger<PoolActions> logger)
 {
     private const ulong Web = Communities.Web;
 
@@ -32,6 +33,20 @@ public sealed class PoolActions(PreService pre, WaveDispatcher waves, LiveUpdate
         {
             live.PublishChanged();
             await waves.RunAsync(result.Listing.Id);
+
+            // Announce elsewhere (Discord) in the background: the user's click must not wait for it.
+            var listing = result.Listing;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await feed.PublishAsync(listing);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Announcing listing {ListingId} failed", listing.Id);
+                }
+            });
         }
 
         return result;

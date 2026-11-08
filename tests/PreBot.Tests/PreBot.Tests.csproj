@@ -21,7 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PreBot.Core\PreBot.Core.csproj" />
-    <ProjectReference Include="..\..\src\PreBot\PreBot.csproj" />
+    <ProjectReference Include="..\..\src\PreBot.Discord\PreBot.Discord.csproj" />
   </ItemGroup>
 
 </Project>

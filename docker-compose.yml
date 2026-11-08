@@ -17,6 +17,11 @@ services:
       Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
       Authentication__Discord__ClientId: ${DISCORD_CLIENT_ID:-}
       Authentication__Discord__ClientSecret: ${DISCORD_CLIENT_SECRET:-}
+      # Discord bot inside the website (recommended): set DISCORD_BOT_TOKEN. Then do NOT also start the
+      # separate "discord" profile below, or two bots would answer every command.
+      Discord__Token: ${DISCORD_BOT_TOKEN:-}
+      Discord__FeedChannels: ${DISCORD_FEED_CHANNELS:-}
+      PublicUrl: https://${DOMAIN}
     volumes:
       - prebot-data:/data
     expose:
@@ -38,6 +43,7 @@ services:
       - caddy-data:/data
       - caddy-config:/config
 
+  # Standalone bot: only if the website does NOT host the bot.
   bot:
     profiles: ["discord"]
     build:

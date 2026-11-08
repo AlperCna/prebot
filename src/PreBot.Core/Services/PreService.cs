@@ -462,17 +462,33 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         return new WaveResult(listingId, wave, notify);
     }
 
-    public async Task<IReadOnlyList<int>> GetDueWaveListingIdsAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Listings whose next notification wave is due. When the website and the Discord bot run in one
+    /// process, each worker must only take its own listings (<paramref name="onlyCommunity"/> /
+    /// <paramref name="exceptCommunity"/>): running a wave marks it sent, so the wrong worker would
+    /// silently swallow it.
+    /// </summary>
+    public async Task<IReadOnlyList<int>> GetDueWaveListingIdsAsync(
+        ulong? onlyCommunity = null, ulong? exceptCommunity = null, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var now = Now;
-        return await db.Listings.AsNoTracking()
+        var query = db.Listings.AsNoTracking()
             .Where(l => l.Status == ListingStatus.Open
                 && l.NextWaveAtUtc != null && l.NextWaveAtUtc <= now
                 && l.ExpiresAtUtc > now
-                && l.WavesSent < Matcher.MaxWaves)
-            .Select(l => l.Id)
-            .ToListAsync(ct);
+                && l.WavesSent < Matcher.MaxWaves);
+        if (onlyCommunity is { } only)
+        {
+            query = query.Where(l => l.GuildId == only);
+        }
+
+        if (exceptCommunity is { } except)
+        {
+            query = query.Where(l => l.GuildId != except);
+        }
+
+        return await query.Select(l => l.Id).ToListAsync(ct);
     }
 
     // ---------- Expiry ----------

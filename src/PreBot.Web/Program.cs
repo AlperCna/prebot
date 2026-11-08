@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using PreBot.Bot;
 using PreBot.Core.Data;
 using PreBot.Core.Notifications;
 using PreBot.Core.Services;
@@ -40,6 +41,18 @@ builder.Services.AddSingleton<PushSender>();
 builder.Services.AddSingleton<INotificationChannel, InAppChannel>();   // open pages
 builder.Services.AddSingleton<INotificationChannel, WebPushChannel>(); // phones & PCs, even when the site is closed
 builder.Services.AddSingleton<PoolActions>();
+
+// Optional: host the Discord bot in this same process (one database, one writer). It keeps all its slash
+// commands, and announces website listings in Discord:FeedChannelIds with a link back to the site.
+if (DiscordSetup.IsConfigured(builder.Configuration))
+{
+    builder.Services.AddPreBotDiscord(builder.Configuration);
+    builder.Services.AddSingleton<IListingFeed, DiscordListingFeed>();
+}
+else
+{
+    builder.Services.AddSingleton<IListingFeed, NoListingFeed>();
+}
 builder.Services.AddHostedService<PoolWorker>();
 
 // ---------- Auth: cookie session; providers (Google, Discord) sign in through it ----------
