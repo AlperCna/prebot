@@ -1,0 +1,14 @@
+# Sunucuda: .env dosyasına DISCORD_TOKEN=... yaz, sonra: docker compose up -d --build
+services:
+  prebot:
+    build: .
+    restart: unless-stopped
+    environment:
+      Discord__Token: ${DISCORD_TOKEN}
+      # Komutların anında görünmesi için tek sunucu kimliği (isteğe bağlı):
+      # Discord__GuildId: "123456789012345678"
+    volumes:
+      - prebot-data:/data
+
+volumes:
+  prebot-data:
