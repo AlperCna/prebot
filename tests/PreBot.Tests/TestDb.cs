@@ -20,14 +20,15 @@ public sealed class TestDb : IDisposable
     public TestDb()
     {
         Options = new DbContextOptionsBuilder<PreBotDbContext>()
-            .UseSqlite($"Data Source={_path};Pooling=False;Default Timeout=30")
+            // MEMORY journal: no -journal/-wal/-shm files, so antivirus scanning on Windows can never
+            // lock them mid-test ("disk I/O error"). Pooled, like production.
+            .UsePreBotSqlite($"Data Source={_path};Default Timeout=30", journalMode: "MEMORY")
             .Options;
-        using (var db = new PreBotDbContext(Options))
-        {
-            db.Database.Migrate(); // the real migrations, so tests also prove they work
-        }
-
         Factory = new ContextFactory(Options);
+
+        // The real migrations (so tests also prove they work), through the same setup the apps use.
+        DatabaseSetup.MigrateAsync(Factory, journalMode: "MEMORY").GetAwaiter().GetResult();
+
         Time = new FakeTimeProvider(new DateTimeOffset(2026, 11, 13, 21, 0, 0, TimeSpan.Zero));
         Settings = new PreBotOptions();
         Service = new PreService(Factory, Time, Settings);

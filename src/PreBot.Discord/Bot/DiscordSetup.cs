@@ -15,9 +15,11 @@ public static class DiscordSetup
     /// expires Discord listings and sends their notification waves. Used by both the standalone bot
     /// and the website (when it hosts the bot).
     /// </summary>
-    public static IServiceCollection AddPreBotDiscord(this IServiceCollection services, IConfiguration config)
+    /// <param name="standalone">True for the bot program itself (a bad token stops it); false inside the website.</param>
+    public static IServiceCollection AddPreBotDiscord(this IServiceCollection services, IConfiguration config, bool standalone = false)
     {
         services.Configure<DiscordOptions>(config.GetSection("Discord"));
+        services.AddSingleton(new DiscordHosting(standalone));
 
         // Only the Guilds intent: slash commands and buttons need no privileged intents.
         services.AddSingleton(new DiscordSocketConfig

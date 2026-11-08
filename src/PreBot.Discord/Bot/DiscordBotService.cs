@@ -33,15 +33,25 @@ public sealed class DiscordOptions
             .ToArray();
 }
 
+/// <summary>How the bot is hosted: alone (a bad token stops the program) or inside the website (only the bot stops).</summary>
+public sealed record DiscordHosting(bool Standalone);
+
 /// <summary>Connects to Discord, registers slash commands, and routes interactions to <see cref="PreModule"/>.</summary>
 public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
     IServiceProvider services,
     IOptions<DiscordOptions> options,
+    DiscordHosting hosting,
+    IHostApplicationLifetime lifetime,
     ILogger<DiscordBotService> logger) : IHostedService
 {
+    private const string WrongTokenHelp =
+        "Discord bot token'ı geçersiz. Developer Portal → PreBot → Bot → Reset Token ile aldığın değeri kaydet " +
+        "(OAuth2 sayfasındaki 'Client Secret' değil): powershell -ExecutionPolicy Bypass -File .\\scripts\\token-ayarla.ps1 -Proje web";
+
     private bool _modulesLoaded;
+    private int _stopped;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -55,7 +65,19 @@ public sealed class DiscordBotService(
                 "  Docker'da: .env dosyasına DISCORD_BOT_TOKEN=<TOKEN>");
         }
 
+        try
+        {
+            TokenUtils.ValidateToken(TokenType.Bot, token);
+        }
+        catch (ArgumentException)
+        {
+            // Wrong kind of value (e.g. an OAuth client secret): don't even try to connect.
+            Fail();
+            return;
+        }
+
         client.Log += LogAsync;
+        client.Disconnected += OnDisconnectedAsync;
         interactions.Log += LogAsync;
         client.Ready += OnReadyAsync;
         client.InteractionCreated += OnInteractionAsync;
@@ -71,6 +93,46 @@ public sealed class DiscordBotService(
         await client.LogoutAsync();
     }
 
+    /// <summary>Discord rejected the token (401): retrying forever only fills the log.</summary>
+    private Task OnDisconnectedAsync(Exception? ex)
+    {
+        if (ex is Discord.Net.HttpException { HttpCode: System.Net.HttpStatusCode.Unauthorized })
+        {
+            Fail();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await client.StopAsync();
+                }
+                catch (Exception stopEx)
+                {
+                    logger.LogDebug(stopEx, "Stopping the Discord client failed");
+                }
+            });
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void Fail()
+    {
+        if (Interlocked.Exchange(ref _stopped, 1) == 1)
+        {
+            return;
+        }
+
+        if (hosting.Standalone)
+        {
+            logger.LogCritical("{Help}", WrongTokenHelp);
+            lifetime.StopApplication();
+        }
+        else
+        {
+            logger.LogError("Discord botu kapatıldı, site çalışmaya devam ediyor. {Help}", WrongTokenHelp);
+        }
+    }
+
     private async Task OnReadyAsync()
     {
         // Ready fires again after reconnects; modules and commands only need to be set up once.
@@ -81,6 +143,24 @@ public sealed class DiscordBotService(
 
         _modulesLoaded = true;
         await interactions.AddModulesAsync(Assembly.GetExecutingAssembly(), services);
+
+        // Helps setup: which servers the bot is in, and the ids of text channels it can post to
+        // (for Discord:FeedChannels). Server names and channel ids are not secret.
+        foreach (var guild in client.Guilds)
+        {
+            var channels = guild.TextChannels
+                .Where(c => guild.CurrentUser.GetPermissions(c) is { SendMessages: true, EmbedLinks: true })
+                .OrderBy(c => c.Position)
+                .Select(c => $"#{c.Name}={c.Id}");
+            logger.LogInformation("Server {Guild} ({GuildId}) – postable channels: {Channels}",
+                guild.Name, guild.Id, string.Join(", ", channels));
+        }
+
+        var feed = options.Value.FeedChannelIds;
+        if (feed.Length > 0)
+        {
+            logger.LogInformation("Website listings will be announced in {Count} channel(s): {Channels}", feed.Length, string.Join(", ", feed));
+        }
 
         if (options.Value.GuildId is { } guildId)
         {

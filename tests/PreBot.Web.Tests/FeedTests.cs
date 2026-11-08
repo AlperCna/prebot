@@ -23,6 +23,10 @@ public sealed class FeedTests : IDisposable
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Development");
+            // Tests never use local user-secrets: no real Discord bot, no real Google keys.
+            b.UseSetting("Discord:Token", "");
+            b.UseSetting("Database:JournalMode", "MEMORY");
+            b.UseSetting("Authentication:Google:ClientId", "");
             b.UseSetting("ConnectionStrings:PreBot", $"Data Source={_dbPath}");
             b.UseSetting("Push:PublicKey", pub);
             b.UseSetting("Push:PrivateKey", priv);

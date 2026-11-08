@@ -16,15 +16,18 @@ var dataDirectory = builder.Configuration["DataDirectory"]
 Directory.CreateDirectory(dataDirectory);
 var connectionString = builder.Configuration.GetConnectionString("PreBot")
     ?? $"Data Source={Path.Combine(dataDirectory, "prebot-discord.db")}";
-builder.Services.AddDbContextFactory<PreBotDbContext>(o => o.UseSqlite(connectionString));
+builder.Services.AddDbContextFactory<PreBotDbContext>(o =>
+    o.UsePreBotSqlite(connectionString, builder.Configuration["Database:JournalMode"] ?? "WAL"));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PreService>();
 
-builder.Services.AddPreBotDiscord(builder.Configuration);
+builder.Services.AddPreBotDiscord(builder.Configuration, standalone: true);
 
 var host = builder.Build();
 
 // Create or upgrade the database schema (EF Core migrations), then enable WAL.
-await DatabaseSetup.MigrateAsync(host.Services.GetRequiredService<IDbContextFactory<PreBotDbContext>>());
+await DatabaseSetup.MigrateAsync(
+    host.Services.GetRequiredService<IDbContextFactory<PreBotDbContext>>(),
+    builder.Configuration["Database:JournalMode"] ?? "WAL");
 
 await host.RunAsync();

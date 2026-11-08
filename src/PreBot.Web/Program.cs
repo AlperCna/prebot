@@ -26,7 +26,8 @@ builder.Services.AddSingleton(new DataDirectory(dataDirectory));
 builder.Services.AddSingleton(builder.Configuration.GetSection("PreBot").Get<PreBotOptions>() ?? new PreBotOptions());
 var connectionString = builder.Configuration.GetConnectionString("PreBot")
     ?? $"Data Source={Path.Combine(dataDirectory, "prebot-web.db")}";
-builder.Services.AddDbContextFactory<PreBotDbContext>(o => o.UseSqlite(connectionString));
+builder.Services.AddDbContextFactory<PreBotDbContext>(o =>
+    o.UsePreBotSqlite(connectionString, builder.Configuration["Database:JournalMode"] ?? "WAL"));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PreService>();
 builder.Services.AddSingleton<AccountService>();
@@ -96,7 +97,9 @@ builder.Services.AddHealthChecks()
 var app = builder.Build();
 
 // Create or upgrade the database schema (EF Core migrations), then enable WAL.
-await DatabaseSetup.MigrateAsync(app.Services.GetRequiredService<IDbContextFactory<PreBotDbContext>>());
+await DatabaseSetup.MigrateAsync(
+    app.Services.GetRequiredService<IDbContextFactory<PreBotDbContext>>(),
+    app.Configuration["Database:JournalMode"] ?? "WAL");
 
 if (!app.Environment.IsDevelopment())
 {

@@ -67,7 +67,9 @@ public sealed class DiscordFeed(DiscordSocketClient client, IOptions<DiscordOpti
                     continue;
                 }
 
-                await channel.SendMessageAsync(embed: embed, components: components, allowedMentions: AllowedMentions.None);
+                var message = await channel.SendMessageAsync(embed: embed, components: components, allowedMentions: AllowedMentions.None);
+                logger.LogInformation("Announced website listing {ListingId} in channel {ChannelId} (message {MessageId})",
+                    listing.Id, channelId, message.Id);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

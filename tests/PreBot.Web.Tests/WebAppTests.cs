@@ -31,6 +31,10 @@ public sealed partial class WebAppTests : IDisposable
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment(environment);
+            // Tests never use local user-secrets: no real Discord bot, no real Google keys.
+            b.UseSetting("Discord:Token", "");
+            b.UseSetting("Database:JournalMode", "MEMORY");
+            b.UseSetting("Authentication:Google:ClientId", "");
             b.UseSetting("ConnectionStrings:PreBot", $"Data Source={_dbPath}");
             b.UseSetting("Push:PublicKey", TestKeys.PublicKey);
             b.UseSetting("Push:PrivateKey", TestKeys.PrivateKey);
