@@ -27,7 +27,7 @@ Bu kararın sebebi: Discord, Ekim 2024'ten beri Türkiye'de erişime kapalı ve 
 
 ## Rapor geçmişi
 
-- `reports/PreBot geliştirme yol haritası.md`: **güncel plan**. Önceki önerilerin durumu, acil bulgular (sızan anahtar, `?katil=1`, yedek, KVKK), Ranked 5s fırsatı ve Faz 0–3 planı.
+- `reports/PreBot geliştirme yol haritası.md`: **güncel plan**. Önceki önerilerin durumu, acil bulgular (sızan anahtar, `?katil=1`, yedek, KVKK) ve yalnızca Flex odaklı Faz 0–3 planı.
 - `reports/Web uygulaması mı Discord mu.md`: kanal seçimini ve web mimarisini anlatıyor; bu karar hâlâ geçerli.
 - `reports/Pre bot en iyi seçenek analizi.md`: Discord botu öncelikli karar raporu. Kanal kararı yukarıdaki raporla değişti. Eşleştirme, lansman ve havuz büyüklüğü bölümleri hâlâ geçerli.
 - `onceki raporlar/1 - ...araştırması.md`: ilk genel araştırma. Buradaki "haftalık sabit kadro" önerisi artık geçerli değil.
