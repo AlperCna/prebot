@@ -25,6 +25,12 @@ public abstract class UserComponentBase : ComponentBase, IDisposable
 
     protected UserAccount? Account { get; private set; }
 
+    /// <summary>
+    /// False while the page is only prerendered HTML (the live connection isn't up yet, so clicks would do
+    /// nothing). Action buttons are disabled until then, so no click is ever silently lost.
+    /// </summary>
+    protected bool Ready => RendererInfo.IsInteractive;
+
     private Timer? _clock;
 
     protected override async Task OnInitializedAsync()

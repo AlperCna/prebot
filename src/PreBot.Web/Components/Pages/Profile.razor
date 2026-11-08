@@ -25,7 +25,7 @@
         <div class="alert @(_ok ? "alert-success" : "alert-warning") py-2">@_message</div>
     }
 
-    <button class="btn btn-gold" @onclick="SaveAsync">Kaydet</button>
+    <button class="btn btn-gold" disabled="@(!Ready)" @onclick="SaveAsync">Kaydet</button>
 </div>
 
 <div class="section-title">Hesap</div>

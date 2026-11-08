@@ -29,8 +29,8 @@
                 </div>
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-light" disabled="@_busy" @onclick="() => SetAvailableAsync(a.Role, a.Rank, 60)">+1 saat</button>
-                <button class="btn btn-sm btn-outline-danger" disabled="@_busy" @onclick="ClearAsync">Havuzdan çık</button>
+                <button class="btn btn-sm btn-outline-light" disabled="@(_busy || !Ready)" @onclick="() => SetAvailableAsync(a.Role, a.Rank, 60)">+1 saat</button>
+                <button class="btn btn-sm btn-outline-danger" disabled="@(_busy || !Ready)" @onclick="ClearAsync">Havuzdan çık</button>
             </div>
         </div>
     </div>
@@ -67,7 +67,7 @@ else
                 </select>
             </div>
             <div class="col-6 col-md-3">
-                <button class="btn btn-gold w-100" disabled="@_busy" @onclick="() => SetAvailableAsync(_role, _rank, _minutes)">Şu an müsaitim</button>
+                <button class="btn btn-gold w-100" disabled="@(_busy || !Ready)" @onclick="() => SetAvailableAsync(_role, _rank, _minutes)">Şu an müsaitim</button>
             </div>
         </div>
     </div>
@@ -110,7 +110,7 @@ else
 {
     @foreach (var view in _open)
     {
-        <ListingCard View="view" Names="_names" UserId="UserId" OnJoin="JoinAsync" Busy="_busy" />
+        <ListingCard View="view" Names="_names" UserId="UserId" OnJoin="JoinAsync" Busy="@(_busy || !Ready)" />
     }
 }
 
@@ -151,6 +151,7 @@ else
     {
         _busy = true;
         await Actions.SetAvailableAsync(UserId, role, rank, TimeSpan.FromMinutes(minutes));
+        await LoadAsync();
         _busy = false;
     }
 
@@ -158,6 +159,7 @@ else
     {
         _busy = true;
         await Actions.ClearAvailableAsync(UserId);
+        await LoadAsync();
         _busy = false;
     }
 

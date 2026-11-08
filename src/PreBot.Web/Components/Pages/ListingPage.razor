@@ -110,19 +110,19 @@
     <div class="d-flex flex-wrap gap-2 mt-3">
         @if (l.Status == ListingStatus.Open && !insider && !left)
         {
-            <button class="btn btn-gold btn-lg" disabled="@_busy" @onclick="JoinAsync">Katıl</button>
+            <button class="btn btn-gold btn-lg" disabled="@(_busy || !Ready)" @onclick="JoinAsync">Katıl</button>
         }
         @if (joined && l.Status is ListingStatus.Open or ListingStatus.Filled)
         {
-            <button class="btn btn-outline-light" disabled="@_busy" @onclick="LeaveAsync">Vazgeç</button>
+            <button class="btn btn-outline-light" disabled="@(_busy || !Ready)" @onclick="LeaveAsync">Vazgeç</button>
         }
         @if (isHost && l.Status is ListingStatus.Open or ListingStatus.Filled)
         {
             @if (_view.ActiveSlots.Count > 0)
             {
-                <button class="btn btn-outline-light" disabled="@_busy" @onclick="NoShowAsync">Gelmedi, yeniden ara</button>
+                <button class="btn btn-outline-light" disabled="@(_busy || !Ready)" @onclick="NoShowAsync">Gelmedi, yeniden ara</button>
             }
-            <button class="btn btn-outline-danger" disabled="@_busy" @onclick="CancelAsync">İlanı kapat</button>
+            <button class="btn btn-outline-danger" disabled="@(_busy || !Ready)" @onclick="CancelAsync">İlanı kapat</button>
         }
         @if (l.Status == ListingStatus.Open)
         {
@@ -147,6 +147,12 @@
 
     protected override async Task LoadAsync()
     {
+        await LoadViewAsync();
+        await AutoJoinFromNotificationAsync();
+    }
+
+    private async Task LoadViewAsync()
+    {
         _view = await Pre.GetListingViewAsync(Id);
         if (_view is not null && _view.Listing.GuildId != Communities.Web)
         {
@@ -158,8 +164,6 @@
             _names = await Accounts.GetDisplayNamesAsync(
                 _view.ActiveSlots.Select(s => s.UserId).Append(_view.Listing.HostUserId));
         }
-
-        await AutoJoinFromNotificationAsync();
     }
 
     private bool _autoJoinDone;
@@ -193,6 +197,10 @@
         _busy = true;
         _message = null;
         _message = await action();
+
+        // Show the result of our own action right away, without depending on the live-update event
+        // (which this page may not be subscribed to yet, e.g. during the ?katil=1 auto-join).
+        await LoadViewAsync();
         _busy = false;
     }
 

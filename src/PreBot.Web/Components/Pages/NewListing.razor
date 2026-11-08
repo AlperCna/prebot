@@ -68,7 +68,7 @@
         <div class="alert alert-warning mt-3 mb-0">@((MarkupString)_message)</div>
     }
 
-    <button class="btn btn-gold btn-lg w-100 mt-3" disabled="@_busy" @onclick="CreateAsync">İlanı aç ve haber ver</button>
+    <button class="btn btn-gold btn-lg w-100 mt-3" disabled="@(_busy || !Ready)" @onclick="CreateAsync">İlanı aç ve haber ver</button>
     <div class="text-dim small mt-2 text-center">İlan 15 dakika açık kalır. Master+ biriyle partide herkes en az Zümrüt olmalı.</div>
 </div>
 

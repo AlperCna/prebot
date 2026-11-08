@@ -83,7 +83,7 @@
         <div class="alert alert-success py-2 small mt-3 mb-0">@_message</div>
     }
 
-    <button class="btn btn-gold mt-3" @onclick="SaveAsync">Kaydet</button>
+    <button class="btn btn-gold mt-3" disabled="@(!Ready)" @onclick="SaveAsync">Kaydet</button>
 </div>
 
 @code {
