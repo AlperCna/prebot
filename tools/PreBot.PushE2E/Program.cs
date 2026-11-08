@@ -157,7 +157,7 @@ try
     await Step("Bildirimdeki 'Katıl' bağlantısı yeri kapar", async () =>
     {
         await player.NavigateAsync($"{baseUrl}/ilan/{listingId}?katil=1");
-        await player.WaitForTextAsync("İlan sahibi seni davet edecek");
+        await player.WaitForTextAsync("İlan sahibi seni oyunda davet edecek");
         await player.WaitForAsync("!location.search.includes('katil')", TimeSpan.FromSeconds(10));
     });
 

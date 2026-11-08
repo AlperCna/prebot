@@ -261,3 +261,25 @@ h1:focus {
 .riot-copy:hover {
     border-color: var(--pb-gold);
 }
+
+/* ---------- Stats ---------- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+}
+
+.stats-grid .pb-card + .pb-card {
+    margin-top: 0;
+}
+
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--pb-gold);
+}
+
+.stat-label {
+    color: var(--pb-text-dim);
+    font-size: 0.85rem;
+}

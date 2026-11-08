@@ -32,6 +32,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PreService>();
 builder.Services.AddSingleton<AccountService>();
 builder.Services.AddSingleton<AnnouncementStore>();
+builder.Services.AddSingleton<StatsService>();
 builder.Services.AddSingleton<WaveDispatcher>();
 
 // ---------- Live updates & notifications ----------

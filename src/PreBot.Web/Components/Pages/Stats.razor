@@ -1,0 +1,62 @@
+@page "/istatistik"
+@inject StatsService StatsService
+
+<PageTitle>İstatistikler · PreBot</PageTitle>
+
+<h1 class="h3 mb-1">İşe yarıyor mu?</h1>
+<p class="text-dim">Açılan "pre lazım" ilanlarının ne kadarı doluyor, ne kadar sürede? İsim yok, yalnızca toplamlar.</p>
+
+@foreach (var (title, s) in _periods)
+{
+    <div class="section-title">@title</div>
+    <div class="stats-grid">
+        <div class="pb-card stat">
+            <div class="stat-value">@(s.FillRate is double r ? $"%{r * 100:0}" : "–")</div>
+            <div class="stat-label">ilan doldu (@s.ListingsFilled / @s.ListingsFinished)</div>
+        </div>
+        <div class="pb-card stat">
+            <div class="stat-value">@(s.MedianMinutesToFill is double m ? Minutes(m) : "–")</div>
+            <div class="stat-label">tipik dolma süresi</div>
+        </div>
+        <div class="pb-card stat">
+            <div class="stat-value">@(s.FastestMinutesToFill is double f ? Minutes(f) : "–")</div>
+            <div class="stat-label">en hızlı dolan</div>
+        </div>
+        <div class="pb-card stat">
+            <div class="stat-value">@s.ListingsOpened</div>
+            <div class="stat-label">ilan açıldı</div>
+        </div>
+        <div class="pb-card stat">
+            <div class="stat-value">@s.NotificationsSent</div>
+            <div class="stat-label">bildirim gönderildi</div>
+        </div>
+        <div class="pb-card stat">
+            <div class="stat-value">@s.ActivePlayers</div>
+            <div class="stat-label">oyuncu katıldı ya da ilan açtı</div>
+        </div>
+    </div>
+}
+
+<div class="pb-card mt-3">
+    <span class="dot"></span><strong>@_availableNow</strong> kişi şu an müsait.
+    <span class="text-dim small">Hedef: ilanların en az yarısı dolsun, medyan 10 dakikanın altında kalsın.</span>
+</div>
+
+@code {
+    private readonly List<(string Title, StatsSummary Stats)> _periods = [];
+    private int _availableNow;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var day = await StatsService.GetAsync(Communities.Web, TimeSpan.FromDays(1));
+        var week = await StatsService.GetAsync(Communities.Web, TimeSpan.FromDays(7));
+        var month = await StatsService.GetAsync(Communities.Web, TimeSpan.FromDays(30));
+        _periods.Add(("Son 24 saat", day));
+        _periods.Add(("Son 7 gün", week));
+        _periods.Add(("Son 30 gün", month));
+        _availableNow = day.AvailableNow;
+    }
+
+    private static string Minutes(double minutes) =>
+        minutes < 1 ? $"{Math.Max(1, (int)Math.Round(minutes * 60))} sn" : $"{minutes:0.#} dk";
+}
