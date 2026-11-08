@@ -489,4 +489,5 @@ $RECYCLE.BIN/
 
 # Web Push private key (generated locally)
 vapid-keys.json
+design-time.db*
 

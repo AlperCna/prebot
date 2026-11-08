@@ -61,6 +61,7 @@ public sealed partial class WebAppTests : IDisposable
     [InlineData("/giris", "Giriş yap")]
     [InlineData("/gizlilik", "KVKK")]
     [InlineData("/kosullar", "Kullanım Koşulları")]
+    [InlineData("/health", "Healthy")]
     public async Task Public_pages_load(string path, string expectedText)
     {
         var response = await Client().GetAsync(path);

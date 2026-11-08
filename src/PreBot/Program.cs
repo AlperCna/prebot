@@ -46,10 +46,7 @@ builder.Services.AddHostedService<ExpiryWorker>();
 
 var host = builder.Build();
 
-// MVP: create the SQLite schema on first run. Switch to EF migrations before changing the schema in production.
-await using (var db = await host.Services.GetRequiredService<IDbContextFactory<PreBotDbContext>>().CreateDbContextAsync())
-{
-    await db.Database.EnsureCreatedAsync();
-}
+// Create or upgrade the database schema (EF Core migrations), then enable WAL.
+await DatabaseSetup.MigrateAsync(host.Services.GetRequiredService<IDbContextFactory<PreBotDbContext>>());
 
 await host.RunAsync();

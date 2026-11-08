@@ -91,9 +91,54 @@ Komutta **1**'i seç. Secret ekranda görünmez.
 3. **Reset Secret** ile yeni bir secret al.
 4. Aynı komutu çalıştır ve **2**'yi seç. Client ID hazır gelir, sadece secret'ı yapıştır.
 
+### 🚀 Yayına alma (VPS + Docker + otomatik HTTPS)
+
+Gerekenler:
+- Linux bir VPS (ör. Hetzner, aylık yaklaşık 6 €)
+- Bir alan adı (ör. `prebot.com.tr`)
+
+1. Alan adının DNS ayarlarında, alan adını VPS'in IP adresine yönlendiren bir **A kaydı** ekle.
+2. VPS'e Docker'ı kur:
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+3. Projeyi VPS'e indir ve ayar dosyasını oluştur:
+
+```bash
+git clone <repo-adresi> prebot && cd prebot && cp deploy/.env.example .env
+```
+
+4. `.env` dosyasında en az `DOMAIN` ve `PUSH_SUBJECT` değerlerini doldur. Google ve Discord anahtarları isteğe bağlı. Google ve Discord konsollarına yönlendirme adresi (redirect URI) olarak `https://ALANADI/signin-google` ve `https://ALANADI/signin-discord` adreslerini de ekle.
+5. Siteyi başlat:
+
+```bash
+docker compose up -d --build
+```
+
+Caddy, HTTPS sertifikasını Let's Encrypt'ten kendisi alır ve yeniler. Push anahtarları ilk açılışta üretilip `prebot-data` volume'unda saklanır. Discord botunu da çalıştırmak istersen `.env` dosyasına `DISCORD_BOT_TOKEN` ekleyip `docker compose --profile discord up -d --build` komutunu kullan.
+
+**Yedekleme:** veriler `prebot-data` volume'unda duruyor: veritabanı, push anahtarları ve oturum anahtarları. Volume'u düzenli olarak yedekle.
+
+**CI:** `.github/workflows/ci.yml` her push'ta şunları yapar:
+- uyarıları hata sayarak derler,
+- unutulmuş bir veritabanı migration'ı olup olmadığını kontrol eder,
+- bütün testleri çalıştırır,
+- Docker imajlarını derler ve web imajını `/health` adresiyle dener.
+
+### Veritabanı değişikliği yaparken
+
+Bir entity'yi değiştirdikten sonra şu komutla yeni bir migration ekle:
+
+```bash
+dotnet ef migrations add <Isim> --project src/PreBot.Core --output-dir Data/Migrations
+```
+
+Site ve bot açılışta veritabanını kendiliğinden günceller. Migration eklemeyi unutursan testler ve CI hata verir.
+
 **Sıradakiler:**
-- Yayına alma (Docker + HTTPS + alan adı)
-- Discord botunu web havuzuna bağlama
+- Discord botunu web havuzuna bağlama (ilanları sunuculara bağlantıyla taşıma)
 
 ## Discord botu komutları
 

@@ -1,0 +1,6 @@
+# Caddy gets and renews the HTTPS certificate (Let's Encrypt) for $DOMAIN automatically,
+# and forwards everything (including Blazor's WebSocket) to the web container.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:8080
+}

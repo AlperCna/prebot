@@ -24,7 +24,7 @@ public sealed class TestDb : IDisposable
             .Options;
         using (var db = new PreBotDbContext(Options))
         {
-            db.Database.EnsureCreated();
+            db.Database.Migrate(); // the real migrations, so tests also prove they work
         }
 
         Factory = new ContextFactory(Options);

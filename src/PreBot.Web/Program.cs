@@ -76,15 +76,14 @@ builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// /health: used by Docker to know the site is alive and the database answers.
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database");
+
 var app = builder.Build();
 
-// MVP: create the schema on first run (switch to EF migrations before changing it in production).
-// WAL lets readers keep reading while the single writer writes.
-await using (var db = await app.Services.GetRequiredService<IDbContextFactory<PreBotDbContext>>().CreateDbContextAsync())
-{
-    await db.Database.EnsureCreatedAsync();
-    await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
-}
+// Create or upgrade the database schema (EF Core migrations), then enable WAL.
+await DatabaseSetup.MigrateAsync(app.Services.GetRequiredService<IDbContextFactory<PreBotDbContext>>());
 
 if (!app.Environment.IsDevelopment())
 {
@@ -100,6 +99,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapHealthChecks("/health");
 app.MapAuthEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
@@ -111,3 +111,17 @@ public partial class Program;
 
 /// <summary>Folder for the database and generated keys (never inside a synced or source folder).</summary>
 public sealed record DataDirectory(string Path);
+
+/// <summary>Healthy when the SQLite database can be opened and queried.</summary>
+public sealed class DatabaseHealthCheck(IDbContextFactory<PreBotDbContext> factory)
+    : Microsoft.Extensions.Diagnostics.HealthChecks.IHealthCheck
+{
+    public async Task<Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult> CheckHealthAsync(
+        Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckContext context, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        return await db.Database.CanConnectAsync(ct)
+            ? Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy()
+            : Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Unhealthy("database unavailable");
+    }
+}

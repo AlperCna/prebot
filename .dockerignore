@@ -1,6 +1,9 @@
 **/bin/
 **/obj/
 **/*.db
+**/*.db-*
 arastirma/
+tests/
+tools/
 .git/
 .env

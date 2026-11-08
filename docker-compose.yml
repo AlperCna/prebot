@@ -1,14 +1,55 @@
-# Sunucuda: .env dosyasına DISCORD_TOKEN=... yaz, sonra: docker compose up -d --build
+# Production on a VPS:
+#   1) cp deploy/.env.example .env   and fill it in (at least DOMAIN)
+#   2) docker compose up -d --build
+#   Discord bot too:  docker compose --profile discord up -d --build
 services:
-  prebot:
-    build: .
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
     restart: unless-stopped
     environment:
-      Discord__Token: ${DISCORD_TOKEN}
-      # Komutların anında görünmesi için tek sunucu kimliği (isteğe bağlı):
-      # Discord__GuildId: "123456789012345678"
+      Push__Subject: ${PUSH_SUBJECT:-mailto:prebot@example.com}
+      # Leave empty to generate once and keep them in the data volume.
+      Push__PublicKey: ${PUSH_PUBLIC_KEY:-}
+      Push__PrivateKey: ${PUSH_PRIVATE_KEY:-}
+      Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      Authentication__Discord__ClientId: ${DISCORD_CLIENT_ID:-}
+      Authentication__Discord__ClientSecret: ${DISCORD_CLIENT_SECRET:-}
+    volumes:
+      - prebot-data:/data
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env, e.g. prebot.example.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  bot:
+    profiles: ["discord"]
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    restart: unless-stopped
+    environment:
+      Discord__Token: ${DISCORD_BOT_TOKEN:?Set DISCORD_BOT_TOKEN in .env to run the bot}
     volumes:
       - prebot-data:/data
 
 volumes:
   prebot-data:
+  caddy-data:
+  caddy-config:
