@@ -7,8 +7,13 @@ namespace PreBot.Bot;
 
 public static class DiscordSetup
 {
-    /// <summary>True when a bot token is configured (Discord:Token).</summary>
-    public static bool IsConfigured(IConfiguration config) => !string.IsNullOrWhiteSpace(config["Discord:Token"]);
+    /// <summary>
+    /// True when a bot token is configured (Discord:Token) and the bot is not switched off with
+    /// Discord:Enabled=false (handy for a test run without posting anything to Discord).
+    /// </summary>
+    public static bool IsConfigured(IConfiguration config) =>
+        !string.IsNullOrWhiteSpace(config["Discord:Token"])
+        && !string.Equals(config["Discord:Enabled"], "false", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Registers the Discord bot: gateway client, slash commands and buttons, and the worker that

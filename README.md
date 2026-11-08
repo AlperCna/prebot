@@ -159,6 +159,8 @@ dotnet user-secrets set "Discord:FeedChannels" "KANAL_ID" --project src/PreBot.W
 
 3. Yayında `.env` dosyasına `DISCORD_BOT_TOKEN` yazman yeterli. Duyuru kanalı için `DISCORD_FEED_CHANNELS` (birden fazlaysa virgülle) ayarı ekle. Bağlantılar `https://ALANADI` adresine kendiliğinden yönlenir.
 
+Botu token’ı silmeden geçici olarak kapatmak için `Discord:Enabled=false` (ortam değişkeni: `Discord__Enabled=false`) kullan.
+
 Site ile botun bildirim dalgaları birbirine karışmaz: site yalnızca kendi ilanlarını, bot yalnızca Discord sunucularındaki ilanları işler.
 
 ## Discord botu komutları

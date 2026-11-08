@@ -39,6 +39,7 @@ public sealed class ExternalLoginTests : IDisposable
             b.UseEnvironment(environment);
             // Tests never use local user-secrets: no real Discord bot, no real Google keys.
             b.UseSetting("Discord:Token", "");
+            b.UseSetting("Discord:Enabled", "false");
             b.UseSetting("Database:JournalMode", "MEMORY");
             b.UseSetting("Authentication:Google:ClientId", "");
             b.UseSetting("ConnectionStrings:PreBot", $"Data Source={_dbPath}");
