@@ -2,9 +2,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY src/PreBot.Core/PreBot.Core.csproj src/PreBot.Core/
+COPY src/PreBot.Discord/PreBot.Discord.csproj src/PreBot.Discord/
 COPY src/PreBot/PreBot.csproj src/PreBot/
 RUN dotnet restore src/PreBot/PreBot.csproj
 COPY src/PreBot.Core/ src/PreBot.Core/
+COPY src/PreBot.Discord/ src/PreBot.Discord/
 COPY src/PreBot/ src/PreBot/
 RUN dotnet publish src/PreBot/PreBot.csproj -c Release -o /app --no-restore
 

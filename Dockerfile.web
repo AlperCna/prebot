@@ -3,9 +3,11 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 # Restore first so package downloads are cached between builds.
 COPY src/PreBot.Core/PreBot.Core.csproj src/PreBot.Core/
+COPY src/PreBot.Discord/PreBot.Discord.csproj src/PreBot.Discord/
 COPY src/PreBot.Web/PreBot.Web.csproj src/PreBot.Web/
 RUN dotnet restore src/PreBot.Web/PreBot.Web.csproj
 COPY src/PreBot.Core/ src/PreBot.Core/
+COPY src/PreBot.Discord/ src/PreBot.Discord/
 COPY src/PreBot.Web/ src/PreBot.Web/
 RUN dotnet publish src/PreBot.Web/PreBot.Web.csproj -c Release -o /app --no-restore
 
