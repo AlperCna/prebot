@@ -117,7 +117,7 @@ git clone <repo-adresi> prebot && cd prebot && cp deploy/.env.example .env
 docker compose up -d --build
 ```
 
-Caddy, HTTPS sertifikasını Let's Encrypt'ten kendisi alır ve yeniler. Push anahtarları ilk açılışta üretilip `prebot-data` volume'unda saklanır. Discord botunu da çalıştırmak istersen `.env` dosyasına `DISCORD_BOT_TOKEN` ekleyip `docker compose --profile discord up -d --build` komutunu kullan.
+Caddy, HTTPS sertifikasını Let's Encrypt'ten kendisi alır ve yeniler. Push anahtarları ilk açılışta üretilip `prebot-data` volume'unda saklanır. Discord botunu da çalıştırmak istersen `.env` dosyasına `DISCORD_BOT_TOKEN` (ve duyuru kanalı için `DISCORD_FEED_CHANNELS`) eklemen yeterli: bot sitenin içinde çalışır, ayrı bir komut gerekmez. (`--profile discord` yalnızca botu siteden bağımsız, tek başına çalıştırmak içindir.)
 
 **Yedekleme:** veriler `prebot-data` volume'unda duruyor: veritabanı, push anahtarları ve oturum anahtarları. Volume'u düzenli olarak yedekle.
 
@@ -282,12 +282,15 @@ Müsaitlik kayıtları süresi dolunca siliniyor. Kullanıcı `/verilerimi-sil` 
 
 ## Sonraki adımlar
 
-- [ ] 3 akşam deneme: dolum oranını ve ortalama bekleme süresini ölç (hedef: dolum ≥ %50, medyan bekleme ≤ 10 dk)
-- [ ] Metrikleri kaydet: ilanın dolma süresi, havuz büyüklüğü, katılıp gelmeme oranı
+- [ ] Yayına al (VPS + alan adı) ve 3 akşam gerçek oyuncularla dene: `/istatistik` sayfasında hedef dolum ≥ %50, medyan dolma süresi ≤ 10 dk
+- [x] Metrikler: `/istatistik` (dolum oranı, dolma süresi, bildirim sayısı, müsait kişi)
+- [ ] Katılıp gelmeme ("Gelmedi") oranını istatistiğe ekle
 - [ ] Riot doğrulaması: kişisel API anahtarıyla profil ikonu doğrulaması, gerçek Flex rankını çekme
 - [ ] Kadro dolunca geçici ses kanalı açma
-- [ ] Şemayı değiştirmeden önce `EnsureCreated` yerine EF migrations'a geçiş
-- [ ] GitHub Actions ile otomatik derleme ve test (CI)
+- [x] EF migrations
+- [x] GitHub Actions ile otomatik derleme ve test (CI)
+
+Güncel durum için: [docs/DURUM-RAPORU.md](docs/DURUM-RAPORU.md).
 
 ## Araştırma
 
