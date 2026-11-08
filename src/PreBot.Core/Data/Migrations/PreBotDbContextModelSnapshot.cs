@@ -164,6 +164,31 @@ namespace PreBot.Core.Data.Migrations
                     b.ToTable("Listings");
                 });
 
+            modelBuilder.Entity("PreBot.Core.Domain.ListingAnnouncement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("ChannelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ListingId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("MessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("PostedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ListingId");
+
+                    b.ToTable("ListingAnnouncements");
+                });
+
             modelBuilder.Entity("PreBot.Core.Domain.ListingNotification", b =>
                 {
                     b.Property<int>("Id")

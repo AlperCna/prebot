@@ -13,6 +13,7 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
     public DbSet<ListingNotification> ListingNotifications => Set<ListingNotification>();
     public DbSet<WebPushSubscription> PushSubscriptions => Set<WebPushSubscription>();
     public DbSet<AlertSubscription> AlertSubscriptions => Set<AlertSubscription>();
+    public DbSet<ListingAnnouncement> ListingAnnouncements => Set<ListingAnnouncement>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -46,6 +47,8 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
                 .HasForeignKey(s => s.ListingId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        modelBuilder.Entity<ListingAnnouncement>(e => e.HasIndex(a => a.ListingId));
 
         modelBuilder.Entity<WebPushSubscription>(e =>
         {

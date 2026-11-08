@@ -95,6 +95,21 @@ public sealed class PushTests : IDisposable
     }
 
     [Fact]
+    public async Task Host_gets_a_push_when_someone_joins_even_with_the_site_closed()
+    {
+        var host = await PlayerWithPhoneAsync("Mert", "https://push.example/host-phone");
+        var player = (await Get<AccountService>().GetOrCreateAsync("dev", "alper", "Alper")).UserId;
+        var id = (await Get<PoolActions>().CreateListingAsync(host, Role.Support, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id;
+        _push.Clear();
+
+        await Get<PoolActions>().ClaimAsync(id, player);
+
+        var request = await _push.WaitForAsync("https://push.example/host-phone", TimeSpan.FromSeconds(5));
+        Assert.Equal("high", request.Headers["Urgency"]);
+        Assert.Equal("600", request.Headers["TTL"]); // the host may need a few minutes to see it
+    }
+
+    [Fact]
     public async Task Players_who_do_not_fit_get_nothing()
     {
         var host = (await Get<AccountService>().GetOrCreateAsync("dev", "mert", "Mert")).UserId;
@@ -150,6 +165,35 @@ public sealed class PushTests : IDisposable
             }
 
             return new HttpResponseMessage(StatusFor.GetValueOrDefault(url, HttpStatusCode.Created));
+        }
+
+        public void Clear()
+        {
+            lock (Requests)
+            {
+                Requests.Clear();
+            }
+        }
+
+        /// <summary>Background pushes (e.g. to the host) arrive shortly after the action returns.</summary>
+        public async Task<(string Url, Dictionary<string, string> Headers, int BodyLength)> WaitForAsync(string url, TimeSpan timeout)
+        {
+            var until = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < until)
+            {
+                lock (Requests)
+                {
+                    var hit = Requests.FirstOrDefault(r => r.Url == url);
+                    if (hit.Url is not null)
+                    {
+                        return hit;
+                    }
+                }
+
+                await Task.Delay(50);
+            }
+
+            throw new TimeoutException($"No push to {url}");
         }
     }
 }

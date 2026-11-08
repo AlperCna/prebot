@@ -148,3 +148,13 @@ public sealed class AlertSubscription
 
     public int CountToday { get; set; }
 }
+
+/// <summary>A Discord message that announced a website listing, so it can be updated when the listing closes.</summary>
+public sealed class ListingAnnouncement
+{
+    public int Id { get; set; }
+    public int ListingId { get; set; }
+    public ulong ChannelId { get; set; }
+    public ulong MessageId { get; set; }
+    public DateTime PostedAtUtc { get; set; }
+}

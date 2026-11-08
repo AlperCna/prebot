@@ -31,6 +31,7 @@ builder.Services.AddDbContextFactory<PreBotDbContext>(o =>
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PreService>();
 builder.Services.AddSingleton<AccountService>();
+builder.Services.AddSingleton<AnnouncementStore>();
 builder.Services.AddSingleton<WaveDispatcher>();
 
 // ---------- Live updates & notifications ----------
@@ -39,6 +40,7 @@ builder.Services.AddSingleton<SubscriptionService>();
 builder.Services.AddSingleton<VapidKeys>();
 builder.Services.AddHttpClient("webpush", c => c.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddSingleton<PushSender>();
+builder.Services.AddSingleton<HostNotifier>();
 builder.Services.AddSingleton<INotificationChannel, InAppChannel>();   // open pages
 builder.Services.AddSingleton<INotificationChannel, WebPushChannel>(); // phones & PCs, even when the site is closed
 builder.Services.AddSingleton<PoolActions>();

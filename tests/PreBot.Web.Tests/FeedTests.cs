@@ -81,5 +81,71 @@ public sealed class FeedTests : IDisposable
 
         public async Task<Listing> WaitAsync(TimeSpan timeout) =>
             await _first.Task.WaitAsync(timeout);
+
+        public List<int> Updates { get; } = [];
+
+        public Task UpdateAsync(int listingId, CancellationToken ct = default)
+        {
+            lock (Updates)
+            {
+                Updates.Add(listingId);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public async Task WaitForUpdatesAsync(int listingId, int count, TimeSpan timeout)
+        {
+            var until = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < until)
+            {
+                lock (Updates)
+                {
+                    if (Updates.Count(id => id == listingId) >= count)
+                    {
+                        return;
+                    }
+                }
+
+                await Task.Delay(50);
+            }
+
+            throw new TimeoutException($"Expected {count} update(s) of listing {listingId}, got {Updates.Count(id => id == listingId)}");
+        }
+    }
+
+    [Fact]
+    public async Task Joining_and_closing_keep_the_announcement_up_to_date()
+    {
+        var accounts = _factory.Services.GetRequiredService<AccountService>();
+        var host = (await accounts.GetOrCreateAsync("dev", "host2", "Host")).UserId;
+        var player = (await accounts.GetOrCreateAsync("dev", "player2", "Player")).UserId;
+        var actions = _factory.Services.GetRequiredService<PoolActions>();
+        var id = (await actions.CreateListingAsync(host, Role.Mid, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id;
+
+        await actions.ClaimAsync(id, player);
+        await _feed.WaitForUpdatesAsync(id, 1, TimeSpan.FromSeconds(5));
+
+        await actions.CancelAsync(id, host);
+        await _feed.WaitForUpdatesAsync(id, 2, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task Expired_listing_can_be_reopened_with_the_same_settings_by_its_host_only()
+    {
+        var accounts = _factory.Services.GetRequiredService<AccountService>();
+        var host = (await accounts.GetOrCreateAsync("dev", "host3", "Host")).UserId;
+        var other = (await accounts.GetOrCreateAsync("dev", "other3", "Other")).UserId;
+        var actions = _factory.Services.GetRequiredService<PoolActions>();
+        var first = (await actions.CreateListingAsync(host, Role.Adc, Rank.Silver, Rank.Platinum, 2, "akşam oyunu")).Listing!;
+        await actions.CancelAsync(first.Id, host);
+
+        Assert.Null((await actions.ReopenAsync(first.Id, other)).Listing);
+
+        var again = (await actions.ReopenAsync(first.Id, host)).Listing;
+        Assert.NotNull(again);
+        Assert.NotEqual(first.Id, again!.Id);
+        Assert.Equal((Role.Adc, Rank.Silver, Rank.Platinum, 2, "akşam oyunu"),
+            (again.Role, again.MinRank, again.MaxRank, again.SlotsNeeded, again.Note));
     }
 }

@@ -556,6 +556,9 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         await context.ListingNotifications
             .Where(n => n.UserId == userId || hostedIds.Contains(n.ListingId))
             .ExecuteDeleteAsync(ct);
+        await context.ListingAnnouncements
+            .Where(a => hostedIds.Contains(a.ListingId))
+            .ExecuteDeleteAsync(ct);
         await context.Listings.Where(l => l.HostUserId == userId).ExecuteDeleteAsync(ct);
         await context.Availabilities.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
         await context.AlertSubscriptions.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);

@@ -1,15 +1,22 @@
 using PreBot.Core.Domain;
 using PreBot.Core.Notifications;
 using PreBot.Core.Services;
+using PreBot.Web.Push;
 
 namespace PreBot.Web.Live;
 
 /// <summary>
 /// What the website's buttons do. Each action changes the data through <see cref="PreService"/>,
-/// sends notification waves where needed, and tells every open page to refresh.
+/// sends notification waves where needed, tells every open page to refresh, and — in the background,
+/// so no click ever waits for it — notifies the host and keeps the Discord announcement up to date.
 /// </summary>
 public sealed class PoolActions(
-    PreService pre, WaveDispatcher waves, LiveUpdates live, IListingFeed feed, ILogger<PoolActions> logger)
+    PreService pre,
+    WaveDispatcher waves,
+    LiveUpdates live,
+    IListingFeed feed,
+    HostNotifier host,
+    ILogger<PoolActions> logger)
 {
     private const ulong Web = Communities.Web;
 
@@ -33,20 +40,8 @@ public sealed class PoolActions(
         {
             live.PublishChanged();
             await waves.RunAsync(result.Listing.Id);
-
-            // Announce elsewhere (Discord) in the background: the user's click must not wait for it.
             var listing = result.Listing;
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await feed.PublishAsync(listing);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Announcing listing {ListingId} failed", listing.Id);
-                }
-            });
+            Background($"announce listing {listing.Id}", () => feed.PublishAsync(listing));
         }
 
         return result;
@@ -58,6 +53,8 @@ public sealed class PoolActions(
         if (outcome.Result is ClaimResult.Claimed or ClaimResult.ClaimedAndFilled)
         {
             live.PublishChanged();
+            Background($"notify host of join {listingId}", () => host.JoinedAsync(listingId, userId));
+            Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
         }
 
         return outcome;
@@ -70,6 +67,8 @@ public sealed class PoolActions(
         {
             live.PublishChanged();
             await waves.RunAsync(listingId);
+            Background($"notify host of leave {listingId}", () => host.LeftAsync(listingId, userId));
+            Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
         }
 
         return result;
@@ -82,6 +81,7 @@ public sealed class PoolActions(
         {
             live.PublishChanged();
             await waves.RunAsync(listingId);
+            Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
         }
 
         return outcome;
@@ -93,8 +93,34 @@ public sealed class PoolActions(
         if (outcome.Result == HostActionResult.Done)
         {
             live.PublishChanged();
+            Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
         }
 
         return outcome;
     }
+
+    /// <summary>Opens the same listing again (after it expired or was closed). Same rules as a new one.</summary>
+    public async Task<CreateListingResult> ReopenAsync(int listingId, ulong hostUserId)
+    {
+        var view = await pre.GetListingViewAsync(listingId);
+        if (view is null || view.Listing.HostUserId != hostUserId || view.Listing.GuildId != Web)
+        {
+            return new CreateListingResult(null, null, 0);
+        }
+
+        var l = view.Listing;
+        return await CreateListingAsync(hostUserId, l.Role, l.MinRank, l.MaxRank, l.SlotsNeeded, l.Note);
+    }
+
+    private void Background(string what, Func<Task> work) => _ = Task.Run(async () =>
+    {
+        try
+        {
+            await work();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Background task failed: {What}", what);
+        }
+    });
 }
