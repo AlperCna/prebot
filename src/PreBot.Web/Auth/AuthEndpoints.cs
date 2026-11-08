@@ -35,6 +35,35 @@ public static class AuthEndpoints
             });
         }
 
+        // Login with Google / Discord: send the user to the provider...
+        app.MapGet("/auth/login/{provider}", (string provider, string? returnUrl, ExternalProviders providers) =>
+        {
+            var p = providers.Find(provider);
+            if (p is null)
+            {
+                return Results.NotFound();
+            }
+
+            var properties = new AuthenticationProperties
+            {
+                RedirectUri = $"/auth/callback?provider={p.Name}&returnUrl={Uri.EscapeDataString(SafeReturnUrl(returnUrl))}",
+            };
+            return Results.Challenge(properties, [p.Scheme]);
+        });
+
+        // ...and back here once they confirmed who they are.
+        app.MapGet("/auth/callback", async (HttpContext http, AccountService accounts, ExternalProviders providers, string? provider, string? returnUrl) =>
+        {
+            var result = await http.AuthenticateAsync(ExternalLogin.Scheme);
+            var p = provider is null ? null : providers.Find(provider);
+            if (!result.Succeeded || result.Principal is null || p is null)
+            {
+                return Results.Redirect("/giris?hata=dis");
+            }
+
+            return await ExternalLogin.CompleteAsync(http, result.Principal, p.Name, accounts, returnUrl);
+        });
+
         app.MapGet("/auth/logout", async (HttpContext http) =>
         {
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

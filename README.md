@@ -64,8 +64,34 @@ Bütün sayfalar canlı: biri katılınca diğer ekranlar yenilemeye gerek kalma
 
 Bu konum `DataDirectory` ayarıyla değiştirilebilir.
 
+### 🔑 Google ve Discord ile giriş
+
+Bir sağlayıcı ancak anahtarları ayarlanınca giriş sayfasında görünür. Ayarlanmamışsa yerelde yalnızca test girişi çalışır. Sağlayıcılardan sadece hesap kimliği ve görünen ad alınır, **e-posta adresi istenmez** (KVKK).
+
+**Google (yaklaşık 10 dakika):**
+1. <https://console.cloud.google.com> adresinde yeni bir proje oluştur (ör. "PreBot").
+2. **APIs & Services → OAuth consent screen** bölümünde:
+   - User type olarak **External** seç.
+   - Uygulama adına "PreBot" yaz, destek e-postası olarak kendi adresini gir.
+   - Scope eklemene gerek yok.
+3. **Credentials → Create credentials → OAuth client ID** bölümünde:
+   - Application type olarak **Web application** seç.
+   - **Authorized redirect URIs** alanına `http://localhost:5215/signin-google` ekle. Yayına alınca `https://ALANADI/signin-google` adresini de ekle.
+4. Çıkan Client ID ve Client Secret'ı şu komutla kaydet:
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\giris-ayarla.ps1
+```
+
+Komutta **1**'i seç. Secret ekranda görünmez.
+
+**Discord (VPN'li kullanıcılar için, yaklaşık 3 dakika):**
+1. <https://discord.com/developers/applications> → **PreBot** → **OAuth2** sayfasına git.
+2. **Redirects** alanına `http://localhost:5215/signin-discord` ekle.
+3. **Reset Secret** ile yeni bir secret al.
+4. Aynı komutu çalıştır ve **2**'yi seç. Client ID hazır gelir, sadece secret'ı yapıştır.
+
 **Sıradakiler:**
-- Google ile giriş
 - Yayına alma (Docker + HTTPS + alan adı)
 - Discord botunu web havuzuna bağlama
 

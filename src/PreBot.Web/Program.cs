@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using PreBot.Core.Data;
 using PreBot.Core.Notifications;
@@ -42,16 +43,35 @@ builder.Services.AddSingleton<PoolActions>();
 builder.Services.AddHostedService<PoolWorker>();
 
 // ---------- Auth: cookie session; providers (Google, Discord) sign in through it ----------
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+var auth = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o =>
     {
         o.LoginPath = "/giris";
         o.Cookie.Name = "prebot.auth";
+        o.Cookie.HttpOnly = true;
+        o.Cookie.SameSite = SameSiteMode.Lax;
+        o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         o.ExpireTimeSpan = TimeSpan.FromDays(30);
         o.SlidingExpiration = true;
+    })
+    // Short-lived holding cookie between "Google/Discord said OK" and "PreBot account signed in".
+    .AddCookie(ExternalLogin.Scheme, o =>
+    {
+        o.Cookie.Name = "prebot.external";
+        o.ExpireTimeSpan = TimeSpan.FromMinutes(10);
     });
+builder.Services.AddSingleton(ExternalLogin.AddProviders(auth, builder.Configuration));
+
+// Cookie and antiforgery encryption keys must survive restarts, or everyone is logged out on each deploy.
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDirectory, "keys")))
+    .SetApplicationName("PreBot");
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
+
+// Write Turkish letters (ş, ğ, ı, İ...) as-is instead of &#x15F; escapes: smaller, readable HTML.
+builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o =>
+    o.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

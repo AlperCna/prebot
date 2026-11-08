@@ -1,32 +1,65 @@
 @page "/giris"
 @inject IWebHostEnvironment Env
+@inject ExternalProviders Providers
 
 <PageTitle>Giriş · PreBot</PageTitle>
 
 <div class="pb-card mx-auto mt-4" style="max-width: 26rem">
     <h1 class="h4 mb-3">Giriş yap</h1>
 
+    @if (Hata is not null)
+    {
+        <div class="alert alert-warning py-2 small">
+            @(Hata switch
+            {
+                "isim" => "İsim en az 2 karakter olmalı.",
+                "iptal" => "Giriş iptal edildi ya da tamamlanamadı. Tekrar dene.",
+                _ => "Giriş tamamlanamadı. Tekrar dene.",
+            })
+        </div>
+    }
+
+    @if (Providers.All.Count > 0)
+    {
+        <div class="d-grid gap-2">
+            @foreach (var p in Providers.All)
+            {
+                <a class="btn @(p.Name == "google" ? "btn-light" : "btn-outline-light") btn-lg" data-enhance-nav="false"
+                   href="/auth/login/@p.Name?returnUrl=@Uri.EscapeDataString(ReturnUrl ?? "/havuz")">
+                    @(p.Name == "google" ? "🔵 " : "💬 ")@p.Label
+                </a>
+                @if (p.Hint is not null)
+                {
+                    <div class="text-dim small text-center mt-n1">@p.Hint</div>
+                }
+            }
+        </div>
+        <p class="text-dim small mt-3 mb-0">
+            Yalnızca hesap kimliğini ve görünen adını alırız; e-posta adresini almayız. <a href="/gizlilik">Gizlilik</a>
+        </p>
+    }
+    else if (!Env.IsDevelopment())
+    {
+        <p class="text-dim mb-0">Giriş henüz yapılandırılmadı.</p>
+    }
+
     @if (Env.IsDevelopment())
     {
+        @if (Providers.All.Count > 0)
+        {
+            <hr class="my-4" />
+        }
         <p class="text-dim small">
             🧪 <strong>Test girişi</strong> (yalnızca senin bilgisayarında çalışır). Herhangi bir isim yaz.
             İki farklı tarayıcıda iki farklı isimle girip iki oyuncu gibi deneyebilirsin.
         </p>
-        @if (Hata == "isim")
-        {
-            <div class="alert alert-warning py-2 small">İsim en az 2 karakter olmalı.</div>
-        }
         <form method="post" action="/auth/dev-login">
             <AntiforgeryToken />
             <input type="hidden" name="returnUrl" value="@ReturnUrl" />
             <label class="form-label" for="name">Görünen isim</label>
             <input id="name" name="name" class="form-control mb-3" maxlength="32" placeholder="ör. Alper" required autofocus />
-            <button type="submit" class="btn btn-gold w-100">Giriş yap</button>
+            <button type="submit" class="btn btn-gold w-100">Test girişi yap</button>
         </form>
-    }
-    else
-    {
-        <p class="text-dim">Google ile giriş çok yakında burada olacak.</p>
     }
 </div>
 
