@@ -1,6 +1,10 @@
+@inject IJSRuntime JS
+
 @if (RiotId is not null)
 {
-    <span class="rank-chip" title="Oyunda Arkadaş ekle'ye bunu yaz">🎮 @RiotId</span>
+    <button type="button" class="rank-chip riot-copy" title="Kopyala: oyunda Arkadaş ekle'ye yapıştır" @onclick="CopyAsync">
+        🎮 @RiotId <span class="copy-hint">@(_copied ? "✓ kopyalandı" : "kopyala")</span>
+    </button>
 }
 else
 {
@@ -10,4 +14,18 @@ else
 @code {
     [Parameter] public string? RiotId { get; set; }
     [Parameter] public string Hint { get; set; } = "Riot ID kayıtlı değil.";
+
+    private bool _copied;
+
+    private async Task CopyAsync()
+    {
+        try
+        {
+            _copied = await JS.InvokeAsync<bool>("prebot.copy", RiotId);
+        }
+        catch (JSException)
+        {
+            _copied = false;
+        }
+    }
 }

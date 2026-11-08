@@ -58,9 +58,8 @@
 
     @if (_riotId is null)
     {
-        <div class="alert alert-info small mt-3 mb-0">
-            💡 Katılan kişinin seni oyunda bulması için <a href="/profil">profilinde Riot ID'ni kaydet</a>.
-        </div>
+        <RiotIdPrompt UserId="UserId" Hint="Katılan kişi seni oyunda bulsun diye ilanda gösterilir."
+                      OnSaved="riot => _riotId = riot" />
     }
 
     @if (_message is not null)

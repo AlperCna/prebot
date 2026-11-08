@@ -29,6 +29,8 @@
     var insider = isHost || joined;
     var left = !joined && _view.LeftUserIds.Contains(UserId);
     var missing = l.SlotsNeeded - l.SlotsFilled;
+    var active = l.Status is ListingStatus.Open or ListingStatus.Filled;
+    var myRiotId = isHost ? _view.HostRiotId : _view.ActiveSlots.FirstOrDefault(s => s.UserId == UserId)?.RiotId;
 }
 
 @if (Yeni is int matches && isHost && l.Status == ListingStatus.Open)
@@ -66,7 +68,7 @@
         <strong>@_names.GetValueOrDefault(l.HostUserId, "Bir oyuncu")</strong>
         @if (insider)
         {
-            <RiotIdBadge RiotId="@_view.HostRiotId" Hint="@(isHost ? "Profilinden Riot ID'ni ekle ki katılanlar seni bulsun." : "Ona Riot ID'sini sor.")" />
+            <RiotIdBadge RiotId="@_view.HostRiotId" Hint="@(isHost ? "Riot ID'ni aşağıdan ekle ki katılanlar seni bulsun." : "Riot ID'sini kaydetmemiş.")" />
         }
     </div>
 
@@ -91,7 +93,9 @@
 
     @if (isHost && _view.ActiveSlots.Count > 0)
     {
-        <div class="alert alert-info small mt-3 mb-0">Oyunda <strong>Arkadaş ekle</strong> → Riot ID'yi yaz → lobine davet et.</div>
+        <div class="alert alert-info small mt-3 mb-0">
+            Katılanın Riot ID'sine dokun (kopyalanır) → oyunda <strong>Arkadaş ekle</strong>'ye yapıştır → lobine davet et.
+        </div>
     }
     @if (left && l.Status == ListingStatus.Open)
     {
@@ -99,7 +103,16 @@
     }
     @if (joined)
     {
-        <div class="alert alert-info small mt-3 mb-0">İlan sahibi seni davet edecek. Gelemeyeceksen lütfen <strong>Vazgeç</strong>'e bas, başkası alsın.</div>
+        <div class="alert alert-info small mt-3 mb-0">
+            İlan sahibi seni oyunda davet edecek; arkadaşlık isteği gelince kabul et. Beklemek istemezsen onun Riot ID'sine dokunup
+            sen ekle. Gelemeyeceksen lütfen <strong>Vazgeç</strong>'e bas, başkası alsın.
+        </div>
+    }
+    @if (insider && active && myRiotId is null)
+    {
+        <RiotIdPrompt UserId="UserId"
+                      Hint="@(isHost ? "Katılanlar seni oyunda bununla bulacak." : "İlan sahibi seni oyunda bununla davet edecek.")"
+                      OnSaved="_ => LoadViewAsync()" />
     }
 
     @if (_message is not null)
@@ -123,6 +136,10 @@
                 <button class="btn btn-outline-light" disabled="@(_busy || !Ready)" @onclick="NoShowAsync">Gelmedi, yeniden ara</button>
             }
             <button class="btn btn-outline-danger" disabled="@(_busy || !Ready)" @onclick="CancelAsync">İlanı kapat</button>
+        }
+        @if (isHost && l.Status is ListingStatus.Expired or ListingStatus.Cancelled)
+        {
+            <button class="btn btn-gold" disabled="@(_busy || !Ready)" @onclick="ReopenAsync">🔁 Aynı ilanı tekrar aç</button>
         }
         @if (l.Status == ListingStatus.Open)
         {
@@ -223,6 +240,23 @@
 
     private Task CancelAsync() => RunAsync(async () =>
         (await Actions.CancelAsync(Id, UserId)).Result == HostActionResult.Done ? null : "İlan zaten kapalı.");
+
+    private async Task ReopenAsync()
+    {
+        _busy = true;
+        _message = null;
+        var result = await Actions.ReopenAsync(Id, UserId);
+        _busy = false;
+        if (result.Listing is not null)
+        {
+            Navigation.NavigateTo($"/ilan/{result.Listing.Id}?yeni={result.PotentialMatches}");
+            return;
+        }
+
+        _message = result.ExistingOpenListingId is int open
+            ? $"Zaten açık bir ilanın var (#{open}). Önce onu kapat."
+            : "Bu ilan tekrar açılamadı.";
+    }
 
     private async Task CopyLinkAsync()
     {

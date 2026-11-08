@@ -220,3 +220,44 @@ h1:focus {
     background-color: var(--pb-gold);
     border-color: var(--pb-gold);
 }
+
+/* ---------- Onboarding & Riot ID ---------- */
+.getting-started {
+    border-color: rgba(10, 200, 185, 0.45);
+}
+
+.checklist {
+    padding-left: 0;
+    list-style: none;
+}
+
+.checklist li {
+    padding: 0.35rem 0;
+    color: var(--pb-text);
+}
+
+.checklist li.done {
+    color: var(--pb-text-dim);
+}
+
+.riot-prompt {
+    background: var(--pb-surface-2);
+    border: 1px dashed var(--pb-border);
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.riot-copy {
+    cursor: pointer;
+}
+
+.riot-copy .copy-hint {
+    color: var(--pb-text-dim);
+    font-size: 0.75rem;
+    margin-left: 0.35rem;
+}
+
+.riot-copy:hover {
+    border-color: var(--pb-gold);
+}
