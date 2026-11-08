@@ -269,3 +269,7 @@ Müsaitlik kayıtları süresi dolunca siliniyor. Kullanıcı `/verilerimi-sil` 
 ## Araştırma
 
 Bu botun neden böyle tasarlandığını anlatan araştırma raporları `arastirma/` klasöründe. Önce şunu oku: [Pre bot en iyi seçenek analizi](arastirma/reports/Pre%20bot%20en%20iyi%20seçenek%20analizi.md).
+
+## Lisans
+
+[MIT](LICENSE). PreBot, Riot Games tarafından onaylanmamıştır. League of Legends, Riot Games, Inc.'in ticari markasıdır.
