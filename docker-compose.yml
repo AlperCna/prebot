@@ -45,7 +45,9 @@ services:
       dockerfile: Dockerfile.bot
     restart: unless-stopped
     environment:
-      Discord__Token: ${DISCORD_BOT_TOKEN:?Set DISCORD_BOT_TOKEN in .env to run the bot}
+      # Not ":?" — compose would then demand it even when the bot profile is off. The bot itself
+      # stops with a clear message if the token is missing.
+      Discord__Token: ${DISCORD_BOT_TOKEN:-}
     volumes:
       - prebot-data:/data
 

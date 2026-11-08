@@ -36,7 +36,8 @@ public sealed class DiscordBotService(
             throw new InvalidOperationException(
                 "Discord bot token'ı bulunamadı. Şunlardan biriyle ayarla:\n" +
                 "  dotnet user-secrets set \"Discord:Token\" \"<TOKEN>\" --project src/PreBot\n" +
-                "  veya ortam değişkeni: Discord__Token=<TOKEN>");
+                "  veya ortam değişkeni: Discord__Token=<TOKEN>\n" +
+                "  Docker'da: .env dosyasına DISCORD_BOT_TOKEN=<TOKEN>");
         }
 
         client.Log += LogAsync;
