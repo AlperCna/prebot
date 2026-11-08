@@ -24,7 +24,13 @@ body {
 
 main {
     flex: 1;
-    max-width: 860px;
+}
+
+/* One readable column on wide screens; header, content and footer line up. */
+main.container,
+.site-header .container,
+.site-footer .container {
+    max-width: 880px;
 }
 
 a {

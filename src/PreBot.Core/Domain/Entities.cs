@@ -92,3 +92,13 @@ public sealed class UserAccount
 
     public ulong UserId => (ulong)Id;
 }
+
+/// <summary>Who was already notified about a listing, so nobody hears about the same listing twice.</summary>
+public sealed class ListingNotification
+{
+    public int Id { get; set; }
+    public int ListingId { get; set; }
+    public ulong UserId { get; set; }
+    public int Wave { get; set; }
+    public DateTime SentAtUtc { get; set; }
+}

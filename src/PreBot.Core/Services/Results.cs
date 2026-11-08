@@ -12,6 +12,11 @@ public sealed record SweepResult(int ExpiredAvailabilities, IReadOnlyList<int> E
 
 public sealed record SlotView(ulong UserId, string? RiotId);
 
-public sealed record ListingView(Listing Listing, string? HostRiotId, IReadOnlyList<SlotView> ActiveSlots);
+/// <param name="LeftUserIds">Players who held a seat and gave it back (left or no-show). They cannot rejoin this listing.</param>
+public sealed record ListingView(
+    Listing Listing,
+    string? HostRiotId,
+    IReadOnlyList<SlotView> ActiveSlots,
+    IReadOnlySet<ulong> LeftUserIds);
 
 public sealed record PoolSummary(int Total, IReadOnlyDictionary<Role, int> ByRole);

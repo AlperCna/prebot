@@ -9,8 +9,11 @@ public sealed class PreBotOptions
     /// <summary>When a seat is given back (left / no-show), the listing stays open at least this long.</summary>
     public int ReopenMinutes { get; set; } = 10;
 
-    /// <summary>Minimum time between two notifications to the same person.</summary>
-    public int PingCooldownMinutes { get; set; } = 15;
+    /// <summary>
+    /// Minimum time between two notifications to the same "available now" player (across different listings).
+    /// Short on purpose: they are actively waiting. Nobody is ever notified twice about the same listing.
+    /// </summary>
+    public int PingCooldownMinutes { get; set; } = 3;
 
     /// <summary>Maximum seats a single listing can ask for (Flex parties: 1, 2, 3 or 5).</summary>
     public int MaxSlotsPerListing { get; set; } = 3;

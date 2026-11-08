@@ -188,7 +188,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         return new ListingView(
             listing,
             riotIds.GetValueOrDefault(listing.HostUserId),
-            active.Select(s => new SlotView(s.UserId, riotIds.GetValueOrDefault(s.UserId))).ToList());
+            active.Select(s => new SlotView(s.UserId, riotIds.GetValueOrDefault(s.UserId))).ToList(),
+            listing.Slots.Where(s => s.Released).Select(s => s.UserId).ToHashSet());
     }
 
     /// <summary>Open, not yet expired listings of a community, newest first.</summary>
@@ -402,16 +403,28 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         var pool = await db.Availabilities
             .Where(a => a.GuildId == listing.GuildId && a.ExpiresAtUtc > now)
             .ToListAsync(ct);
-        var alreadyInListing = (await db.ListingSlots
+        // Skip anyone who already has (or had) a seat, or already heard about this listing.
+        var excluded = (await db.ListingSlots
                 .Where(s => s.ListingId == listingId)
                 .Select(s => s.UserId)
                 .ToListAsync(ct))
+            .Concat(await db.ListingNotifications
+                .Where(n => n.ListingId == listingId)
+                .Select(n => n.UserId)
+                .ToListAsync(ct))
             .ToHashSet();
 
-        var picked = Matcher.FindCandidates(pool, Criteria(listing), wave, now, PingCooldown, alreadyInListing);
+        var picked = Matcher.FindCandidates(pool, Criteria(listing), wave, now, PingCooldown, excluded);
         foreach (var entry in picked)
         {
             entry.LastPingedAtUtc = now;
+            db.ListingNotifications.Add(new ListingNotification
+            {
+                ListingId = listingId,
+                UserId = entry.UserId,
+                Wave = wave,
+                SentAtUtc = now,
+            });
         }
 
         await db.SaveChangesAsync(ct);
@@ -493,6 +506,9 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
         await context.ListingSlots
             .Where(s => s.UserId == userId || hostedIds.Contains(s.ListingId))
+            .ExecuteDeleteAsync(ct);
+        await context.ListingNotifications
+            .Where(n => n.UserId == userId || hostedIds.Contains(n.ListingId))
             .ExecuteDeleteAsync(ct);
         await context.Listings.Where(l => l.HostUserId == userId).ExecuteDeleteAsync(ct);
         await context.Availabilities.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);

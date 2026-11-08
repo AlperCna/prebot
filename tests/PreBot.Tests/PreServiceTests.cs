@@ -191,6 +191,52 @@ public sealed class PreServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Nobody_is_notified_twice_about_the_same_listing_even_after_cooldown()
+    {
+        await AvailableAsync(10, Role.Support, Rank.Gold);
+        var id = await OpenListingAsync(min: Rank.Gold, max: Rank.Gold);
+        Assert.Equal([10UL], (await _t.Service.RunNextWaveAsync(id))!.UserIds);
+
+        // Well past the per-person cooldown and the next wave's due time.
+        _t.Time.Advance(TimeSpan.FromMinutes(_t.Settings.PingCooldownMinutes + 5));
+        var wave1 = await _t.Service.RunNextWaveAsync(id);
+
+        Assert.NotNull(wave1);
+        Assert.Empty(wave1!.UserIds);
+
+        // ...but a different listing may notify them again once the cooldown passed.
+        var other = (await _t.Service.CreateListingAsync(TestDb.Guild, TestDb.Channel, 2, Role.Support, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id;
+        Assert.Equal([10UL], (await _t.Service.RunNextWaveAsync(other))!.UserIds);
+    }
+
+    [Fact]
+    public async Task Listing_view_remembers_who_left()
+    {
+        var id = await OpenListingAsync(slots: 2);
+        await _t.Service.TryClaimAsync(id, 10);
+        await _t.Service.TryClaimAsync(id, 11);
+        await _t.Service.LeaveAsync(id, 10);
+
+        var view = await _t.Service.GetListingViewAsync(id);
+
+        Assert.Equal([10UL], view!.LeftUserIds);
+        Assert.Equal([11UL], view.ActiveSlots.Select(s => s.UserId));
+    }
+
+    [Fact]
+    public async Task Deleting_user_data_removes_their_notification_history()
+    {
+        await AvailableAsync(10);
+        var id = await OpenListingAsync();
+        await _t.Service.RunNextWaveAsync(id);
+
+        await _t.Service.DeleteUserDataAsync(10);
+
+        await using var db = _t.NewContext();
+        Assert.False(await db.ListingNotifications.AnyAsync(n => n.UserId == 10));
+    }
+
+    [Fact]
     public async Task Listing_view_shows_riot_ids()
     {
         await _t.Service.SetRiotIdAsync(Host, "Kaptan#TR1");

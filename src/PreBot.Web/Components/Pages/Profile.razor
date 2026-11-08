@@ -71,16 +71,24 @@
 
     private async Task SaveAsync()
     {
-        if (!await Accounts.RenameAsync(UserId, _name))
+        // Validate everything first, so a bad field never leaves a half-saved profile.
+        if (AccountService.CleanName(_name).Length < 2)
         {
             (_ok, _message) = (false, "İsim en az 2 karakter olmalı.");
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(_riotId) && !await Pre.SetRiotIdAsync(UserId, _riotId))
+        var hasRiotId = !string.IsNullOrWhiteSpace(_riotId);
+        if (hasRiotId && !RiotIdValidator.TryNormalize(_riotId, out _))
         {
             (_ok, _message) = (false, "Bu bir Riot ID'ye benzemiyor. İsim#ETİKET biçiminde yaz, ör. Oyuncu#TR1.");
             return;
+        }
+
+        await Accounts.RenameAsync(UserId, _name);
+        if (hasRiotId)
+        {
+            await Pre.SetRiotIdAsync(UserId, _riotId!);
         }
 
         (_ok, _message) = (true, "Kaydedildi. İsim değişikliği üst menüde bir sonraki girişte görünür.");

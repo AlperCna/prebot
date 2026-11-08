@@ -27,6 +27,7 @@
     var isHost = l.HostUserId == UserId;
     var joined = _view.ActiveSlots.Any(s => s.UserId == UserId);
     var insider = isHost || joined;
+    var left = !joined && _view.LeftUserIds.Contains(UserId);
     var missing = l.SlotsNeeded - l.SlotsFilled;
 }
 
@@ -92,6 +93,10 @@
     {
         <div class="alert alert-info small mt-3 mb-0">Oyunda <strong>Arkadaş ekle</strong> → Riot ID'yi yaz → lobine davet et.</div>
     }
+    @if (left && l.Status == ListingStatus.Open)
+    {
+        <div class="alert alert-secondary small mt-3 mb-0">Bu ilandan ayrıldın, yerin başkasına açıldı. Aynı ilana tekrar katılamazsın.</div>
+    }
     @if (joined)
     {
         <div class="alert alert-info small mt-3 mb-0">İlan sahibi seni davet edecek. Gelemeyeceksen lütfen <strong>Vazgeç</strong>'e bas, başkası alsın.</div>
@@ -103,7 +108,7 @@
     }
 
     <div class="d-flex flex-wrap gap-2 mt-3">
-        @if (l.Status == ListingStatus.Open && !insider)
+        @if (l.Status == ListingStatus.Open && !insider && !left)
         {
             <button class="btn btn-gold btn-lg" disabled="@_busy" @onclick="JoinAsync">Katıl</button>
         }
@@ -165,7 +170,7 @@
         {
             ClaimResult.Claimed or ClaimResult.ClaimedAndFilled => null,
             ClaimResult.Full => "Biri senden önce davrandı, kadro doldu.",
-            ClaimResult.AlreadyJoined => "Bu ilana zaten katıldın ya da az önce ayrıldın.",
+            ClaimResult.AlreadyJoined => "Bu ilandan daha önce ayrıldın, tekrar katılamazsın.",
             _ => "Bu ilan artık açık değil.",
         });
 

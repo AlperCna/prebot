@@ -2,6 +2,7 @@
     var l = View.Listing;
     var isHost = l.HostUserId == UserId;
     var joined = View.ActiveSlots.Any(s => s.UserId == UserId);
+    var left = !joined && View.LeftUserIds.Contains(UserId);
     var missing = l.SlotsNeeded - l.SlotsFilled;
 }
 
@@ -36,6 +37,10 @@
             else if (joined)
             {
                 <a class="btn btn-sm btn-outline-success" href="/ilan/@l.Id">Katıldın ✓</a>
+            }
+            else if (left)
+            {
+                <span class="text-dim small">Ayrıldın</span>
             }
             else if (l.Status == ListingStatus.Open)
             {

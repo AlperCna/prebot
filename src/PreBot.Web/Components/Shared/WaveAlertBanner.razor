@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject LiveUpdates Live
 @inject PoolActions Actions
+@inject PreService Pre
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -33,7 +34,35 @@
     private readonly Dictionary<int, string> _messages = [];
     private bool _busy;
 
-    protected override void OnInitialized() => Live.Alerted += OnAlerted;
+    protected override void OnInitialized()
+    {
+        Live.Alerted += OnAlerted;
+        Live.Changed += OnChanged;
+    }
+
+    /// <summary>Drop alerts whose listing closed, filled or expired in the meantime.</summary>
+    private void OnChanged()
+    {
+        if (_alerts.Count == 0)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(async () =>
+        {
+            foreach (var listingId in _alerts.Keys.ToList())
+            {
+                var view = await Pre.GetListingViewAsync(listingId);
+                if (view is null || view.Listing.Status != ListingStatus.Open || view.Listing.ExpiresAtUtc <= DateTime.UtcNow)
+                {
+                    _alerts.Remove(listingId);
+                    _messages.Remove(listingId);
+                }
+            }
+
+            StateHasChanged();
+        });
+    }
 
     private void OnAlerted(WaveAlert alert)
     {
@@ -69,9 +98,12 @@
             return;
         }
 
-        _messages[listingId] = outcome.Result == ClaimResult.Full
-            ? "Biri senden önce davrandı, kadro doldu."
-            : "Bu ilan artık açık değil.";
+        _messages[listingId] = outcome.Result switch
+        {
+            ClaimResult.Full => "Biri senden önce davrandı, kadro doldu.",
+            ClaimResult.AlreadyJoined => "Bu ilandan daha önce ayrıldın, tekrar katılamazsın.",
+            _ => "Bu ilan artık açık değil.",
+        };
     }
 
     private void Dismiss(int listingId)
@@ -80,5 +112,9 @@
         _messages.Remove(listingId);
     }
 
-    public void Dispose() => Live.Alerted -= OnAlerted;
+    public void Dispose()
+    {
+        Live.Alerted -= OnAlerted;
+        Live.Changed -= OnChanged;
+    }
 }

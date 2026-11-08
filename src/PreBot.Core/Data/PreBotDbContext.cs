@@ -10,6 +10,7 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
     public DbSet<Listing> Listings => Set<Listing>();
     public DbSet<ListingSlot> ListingSlots => Set<ListingSlot>();
     public DbSet<UserAccount> Accounts => Set<UserAccount>();
+    public DbSet<ListingNotification> ListingNotifications => Set<ListingNotification>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -42,6 +43,12 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
                 .WithOne()
                 .HasForeignKey(s => s.ListingId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ListingNotification>(e =>
+        {
+            e.HasIndex(n => new { n.ListingId, n.UserId }).IsUnique();
+            e.HasIndex(n => n.UserId);
         });
 
         modelBuilder.Entity<UserAccount>(e =>
