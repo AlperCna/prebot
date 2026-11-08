@@ -87,7 +87,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         return await db.Players.AsNoTracking()
-            .Where(p => p.DiscordUserId == userId)
+            .Where(p => p.UserId == userId)
             .Select(p => p.RiotId)
             .SingleOrDefaultAsync(ct);
     }
@@ -182,13 +182,69 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         var active = listing.Slots.Where(s => !s.Released).OrderBy(s => s.ClaimedAtUtc).ThenBy(s => s.Id).ToList();
         var userIds = active.Select(s => s.UserId).Append(listing.HostUserId).Distinct().ToList();
         var riotIds = await db.Players.AsNoTracking()
-            .Where(p => userIds.Contains(p.DiscordUserId))
-            .ToDictionaryAsync(p => p.DiscordUserId, p => p.RiotId, ct);
+            .Where(p => userIds.Contains(p.UserId))
+            .ToDictionaryAsync(p => p.UserId, p => p.RiotId, ct);
 
         return new ListingView(
             listing,
             riotIds.GetValueOrDefault(listing.HostUserId),
             active.Select(s => new SlotView(s.UserId, riotIds.GetValueOrDefault(s.UserId))).ToList());
+    }
+
+    /// <summary>Open, not yet expired listings of a community, newest first.</summary>
+    public async Task<IReadOnlyList<ListingView>> GetOpenListingsAsync(ulong communityId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        var ids = await db.Listings.AsNoTracking()
+            .Where(l => l.GuildId == communityId && l.Status == ListingStatus.Open && l.ExpiresAtUtc > now)
+            .OrderByDescending(l => l.CreatedAtUtc)
+            .Select(l => l.Id)
+            .Take(50)
+            .ToListAsync(ct);
+        return await GetViewsAsync(ids, ct);
+    }
+
+    /// <summary>
+    /// Listings a user hosts or holds a seat in that are still relevant (open, or filled recently),
+    /// so they can find the Riot IDs they need to invite each other.
+    /// </summary>
+    public async Task<IReadOnlyList<ListingView>> GetMyListingsAsync(ulong communityId, ulong userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var since = Now.AddHours(-3);
+        var ids = await db.Listings.AsNoTracking()
+            .Where(l => l.GuildId == communityId
+                && (l.Status == ListingStatus.Open || l.Status == ListingStatus.Filled)
+                && l.CreatedAtUtc > since
+                && (l.HostUserId == userId || l.Slots.Any(s => s.UserId == userId && !s.Released)))
+            .OrderByDescending(l => l.CreatedAtUtc)
+            .Select(l => l.Id)
+            .Take(10)
+            .ToListAsync(ct);
+        return await GetViewsAsync(ids, ct);
+    }
+
+    public async Task<Availability?> GetAvailabilityAsync(ulong communityId, ulong userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        return await db.Availabilities.AsNoTracking()
+            .SingleOrDefaultAsync(a => a.GuildId == communityId && a.UserId == userId && a.ExpiresAtUtc > now, ct);
+    }
+
+    private async Task<IReadOnlyList<ListingView>> GetViewsAsync(IEnumerable<int> listingIds, CancellationToken ct)
+    {
+        var views = new List<ListingView>();
+        foreach (var id in listingIds)
+        {
+            if (await GetListingViewAsync(id, ct) is { } view)
+            {
+                views.Add(view);
+            }
+        }
+
+        return views;
     }
 
     /// <summary>Takes a seat. Safe when many people click at the same moment: exactly one gets the last seat.</summary>
@@ -440,7 +496,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             .ExecuteDeleteAsync(ct);
         await context.Listings.Where(l => l.HostUserId == userId).ExecuteDeleteAsync(ct);
         await context.Availabilities.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
-        await context.Players.Where(p => p.DiscordUserId == userId).ExecuteDeleteAsync(ct);
+        await context.Players.Where(p => p.UserId == userId).ExecuteDeleteAsync(ct);
         await tx.CommitAsync(ct);
 
         var removed = hosted
@@ -456,11 +512,11 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
     private static async Task<Player> EnsurePlayerAsync(PreBotDbContext db, ulong userId, DateTime now, CancellationToken ct)
     {
-        var player = db.Players.Local.FirstOrDefault(p => p.DiscordUserId == userId)
-            ?? await db.Players.SingleOrDefaultAsync(p => p.DiscordUserId == userId, ct);
+        var player = db.Players.Local.FirstOrDefault(p => p.UserId == userId)
+            ?? await db.Players.SingleOrDefaultAsync(p => p.UserId == userId, ct);
         if (player is null)
         {
-            player = new Player { DiscordUserId = userId, ConsentedAtUtc = now };
+            player = new Player { UserId = userId, ConsentedAtUtc = now };
             db.Players.Add(player);
         }
 

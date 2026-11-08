@@ -1,0 +1,102 @@
+@page "/ilan-ac"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inherits UserComponentBase
+
+<PageTitle>İlan aç · PreBot</PageTitle>
+
+@if (Account is null)
+{
+    return;
+}
+
+<h1 class="h3 mb-1">Pre lazım</h1>
+<p class="text-dim">Kaç kişi eksik, hangi rol ve rank aralığı? Havuzdaki uygun oyunculara anında haber gidecek.</p>
+
+<div class="pb-card">
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <label class="form-label">Hangi rol lazım?</label>
+            <select class="form-select" @bind="_role">
+                @foreach (var r in Format.Roles)
+                {
+                    <option value="@r">@Format.RoleLabel(r)</option>
+                }
+            </select>
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label">Kaç kişi eksik?</label>
+            <select class="form-select" @bind="_slots">
+                <option value="1">1 kişi (4 kişiyiz)</option>
+                <option value="2">2 kişi (3 kişiyiz)</option>
+                <option value="3">3 kişi (2 kişiyiz)</option>
+            </select>
+        </div>
+        <div class="col-6">
+            <label class="form-label">En düşük rank</label>
+            <select class="form-select" @bind="_min">
+                @foreach (var k in Format.Ranks)
+                {
+                    <option value="@k">@TurkishNames.Of(k)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6">
+            <label class="form-label">En yüksek rank</label>
+            <select class="form-select" @bind="_max">
+                @foreach (var k in Format.Ranks)
+                {
+                    <option value="@k">@TurkishNames.Of(k)</option>
+                }
+            </select>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Not (isteğe bağlı)</label>
+            <input class="form-control" maxlength="200" placeholder="ör. mikrofon şart, eğlencesine oynuyoruz" @bind="_note" />
+        </div>
+    </div>
+
+    @if (_riotId is null)
+    {
+        <div class="alert alert-info small mt-3 mb-0">
+            💡 Katılan kişinin seni oyunda bulması için <a href="/profil">profilinde Riot ID'ni kaydet</a>.
+        </div>
+    }
+
+    @if (_message is not null)
+    {
+        <div class="alert alert-warning mt-3 mb-0">@((MarkupString)_message)</div>
+    }
+
+    <button class="btn btn-gold btn-lg w-100 mt-3" disabled="@_busy" @onclick="CreateAsync">İlanı aç ve haber ver</button>
+    <div class="text-dim small mt-2 text-center">İlan 15 dakika açık kalır. Master+ biriyle partide herkes en az Zümrüt olmalı.</div>
+</div>
+
+@code {
+    private Role _role = Role.Support;
+    private Rank _min = Rank.Gold;
+    private Rank _max = Rank.Platinum;
+    private int _slots = 1;
+    private string? _note;
+    private string? _riotId;
+    private bool _busy;
+    private string? _message;
+
+    protected override async Task LoadAsync() => _riotId = await Pre.GetRiotIdAsync(UserId);
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        _message = null;
+        var result = await Actions.CreateListingAsync(UserId, _role, _min, _max, _slots, _note);
+        _busy = false;
+
+        if (result.Listing is null)
+        {
+            _message = $"Zaten açık bir ilanın var. <a href=\"/ilan/{result.ExistingOpenListingId}\">Ona git</a> ya da önce kapat.";
+            return;
+        }
+
+        Navigation.NavigateTo($"/ilan/{result.Listing.Id}?yeni={result.PotentialMatches}");
+    }
+}

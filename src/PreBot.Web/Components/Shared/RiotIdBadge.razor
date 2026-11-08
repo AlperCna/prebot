@@ -1,0 +1,13 @@
+@if (RiotId is not null)
+{
+    <span class="rank-chip" title="Oyunda Arkadaş ekle'ye bunu yaz">🎮 @RiotId</span>
+}
+else
+{
+    <span class="text-dim small ms-1">(@Hint)</span>
+}
+
+@code {
+    [Parameter] public string? RiotId { get; set; }
+    [Parameter] public string Hint { get; set; } = "Riot ID kayıtlı değil.";
+}

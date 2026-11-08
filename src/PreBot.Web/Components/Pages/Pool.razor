@@ -1,0 +1,179 @@
+@page "/havuz"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inherits UserComponentBase
+
+<PageTitle>Havuz · PreBot</PageTitle>
+
+@if (Account is null)
+{
+    return;
+}
+
+<WaveAlertBanner UserId="UserId" />
+
+<h1 class="h3 mb-3">Havuz</h1>
+
+@if (_availability is { } a)
+{
+    <div class="pb-card status-live">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <div class="fw-semibold"><span class="dot"></span>Havuzdasın: @Format.RoleLabel(a.Role) · @TurkishNames.Of(a.Rank)</div>
+                <div class="text-dim small">
+                    @Format.TimeLeft(a.ExpiresAtUtc) sonra kendiliğinden çıkacaksın. Uygun ilan açılınca bu sayfada haber vereceğim.
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-light" disabled="@_busy" @onclick="() => SetAvailableAsync(a.Role, a.Rank, 60)">+1 saat</button>
+                <button class="btn btn-sm btn-outline-danger" disabled="@_busy" @onclick="ClearAsync">Havuzdan çık</button>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="pb-card">
+        <div class="fw-semibold mb-2">Şu an oynayabilir misin?</div>
+        <div class="row g-2 align-items-end">
+            <div class="col-6 col-md-3">
+                <label class="form-label">Rol</label>
+                <select class="form-select" @bind="_role">
+                    @foreach (var r in Format.Roles)
+                    {
+                        <option value="@r">@Format.RoleLabel(r)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label">Flex rankın</label>
+                <select class="form-select" @bind="_rank">
+                    @foreach (var k in Format.Ranks)
+                    {
+                        <option value="@k">@TurkishNames.Of(k)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label">Süre</label>
+                <select class="form-select" @bind="_minutes">
+                    <option value="30">30 dakika</option>
+                    <option value="60">1 saat</option>
+                    <option value="120">2 saat</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-3">
+                <button class="btn btn-gold w-100" disabled="@_busy" @onclick="() => SetAvailableAsync(_role, _rank, _minutes)">Şu an müsaitim</button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="section-title">Şu an müsait (@_summary.Total kişi)</div>
+@if (_summary.Total == 0)
+{
+    <p class="text-dim">Havuz şu an boş. Akşamları dolmaya başlar. İlk sen gir!</p>
+}
+else
+{
+    <div>
+        @foreach (var (role, count) in _summary.ByRole.Where(kv => kv.Value > 0))
+        {
+            <span class="role-chip">@Format.RoleLabel(role): <strong>@count</strong></span>
+        }
+    </div>
+}
+
+@if (_mine.Count > 0)
+{
+    <div class="section-title">Senin ilanların</div>
+    @foreach (var view in _mine)
+    {
+        <ListingCard View="view" Names="_names" UserId="UserId" Highlight="true" />
+    }
+}
+
+<div class="d-flex justify-content-between align-items-end">
+    <div class="section-title">Açık ilanlar</div>
+    <a class="btn btn-sm btn-outline-light mb-2" href="/ilan-ac">➕ Pre lazım, ilan aç</a>
+</div>
+
+@if (_open.Count == 0)
+{
+    <p class="text-dim">Şu an açık ilan yok.</p>
+}
+else
+{
+    @foreach (var view in _open)
+    {
+        <ListingCard View="view" Names="_names" UserId="UserId" OnJoin="JoinAsync" Busy="_busy" />
+    }
+}
+
+@if (_message is not null)
+{
+    <div class="alert alert-warning mt-3">@_message</div>
+}
+
+@code {
+    private Availability? _availability;
+    private PoolSummary _summary = new(0, new Dictionary<Role, int>());
+    private IReadOnlyList<ListingView> _open = [];
+    private IReadOnlyList<ListingView> _mine = [];
+    private IReadOnlyDictionary<ulong, string> _names = new Dictionary<ulong, string>();
+    private Role _role = Role.Support;
+    private Rank _rank = Rank.Gold;
+    private int _minutes = 60;
+    private bool _busy;
+    private string? _message;
+
+    protected override async Task LoadAsync()
+    {
+        _availability = await Pre.GetAvailabilityAsync(Communities.Web, UserId);
+        _summary = await Pre.GetPoolSummaryAsync(Communities.Web);
+        _mine = await Pre.GetMyListingsAsync(Communities.Web, UserId);
+        var mineIds = _mine.Select(v => v.Listing.Id).ToHashSet();
+        _open = (await Pre.GetOpenListingsAsync(Communities.Web)).Where(v => !mineIds.Contains(v.Listing.Id)).ToList();
+        _names = await Accounts.GetDisplayNamesAsync(_open.Concat(_mine).Select(v => v.Listing.HostUserId));
+
+        if (_availability is { } a)
+        {
+            _role = a.Role;
+            _rank = a.Rank;
+        }
+    }
+
+    private async Task SetAvailableAsync(Role role, Rank rank, int minutes)
+    {
+        _busy = true;
+        await Actions.SetAvailableAsync(UserId, role, rank, TimeSpan.FromMinutes(minutes));
+        _busy = false;
+    }
+
+    private async Task ClearAsync()
+    {
+        _busy = true;
+        await Actions.ClearAvailableAsync(UserId);
+        _busy = false;
+    }
+
+    private async Task JoinAsync(int listingId)
+    {
+        _busy = true;
+        _message = null;
+        var outcome = await Actions.ClaimAsync(listingId, UserId);
+        _busy = false;
+        if (outcome.Result is ClaimResult.Claimed or ClaimResult.ClaimedAndFilled)
+        {
+            Navigation.NavigateTo($"/ilan/{listingId}");
+            return;
+        }
+
+        _message = outcome.Result switch
+        {
+            ClaimResult.Full => "Biri senden önce davrandı, kadro doldu.",
+            ClaimResult.AlreadyJoined => "Bu ilana zaten katıldın ya da az önce ayrıldın.",
+            _ => "Bu ilan artık açık değil.",
+        };
+    }
+}

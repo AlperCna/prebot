@@ -1,0 +1,84 @@
+@using PreBot.Core.Notifications
+@implements IDisposable
+@inject LiveUpdates Live
+@inject PoolActions Actions
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+@foreach (var alert in _alerts.Values.OrderByDescending(a => a.ListingId))
+{
+    <div class="wave-alert" role="alert">
+        <div>
+            <div class="fw-bold">📣 Senin için ilan!</div>
+            <div>
+                @Format.RoleLabel(alert.Role) lazım · @TurkishNames.RankRange(alert.MinRank, alert.MaxRank) ·
+                @alert.SlotsMissing kişi eksik. İlk basan alır.
+            </div>
+            @if (_messages.TryGetValue(alert.ListingId, out var message))
+            {
+                <div class="small mt-1">@message</div>
+            }
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+            <button class="btn btn-gold" disabled="@_busy" @onclick="() => JoinAsync(alert.ListingId)">Katıl</button>
+            <button class="btn btn-outline-light" @onclick="() => Dismiss(alert.ListingId)">Geç</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ulong UserId { get; set; }
+
+    private readonly Dictionary<int, WaveAlert> _alerts = [];
+    private readonly Dictionary<int, string> _messages = [];
+    private bool _busy;
+
+    protected override void OnInitialized() => Live.Alerted += OnAlerted;
+
+    private void OnAlerted(WaveAlert alert)
+    {
+        if (!alert.UserIds.Contains(UserId))
+        {
+            return;
+        }
+
+        _ = InvokeAsync(async () =>
+        {
+            _alerts[alert.ListingId] = alert;
+            _messages.Remove(alert.ListingId);
+            StateHasChanged();
+            try
+            {
+                await JS.InvokeVoidAsync("prebot.attention", "📣 Pre lazım!");
+            }
+            catch (JSException)
+            {
+                // Sound/title flash is a nice-to-have.
+            }
+        });
+    }
+
+    private async Task JoinAsync(int listingId)
+    {
+        _busy = true;
+        var outcome = await Actions.ClaimAsync(listingId, UserId);
+        _busy = false;
+        if (outcome.Result is ClaimResult.Claimed or ClaimResult.ClaimedAndFilled)
+        {
+            Navigation.NavigateTo($"/ilan/{listingId}");
+            return;
+        }
+
+        _messages[listingId] = outcome.Result == ClaimResult.Full
+            ? "Biri senden önce davrandı, kadro doldu."
+            : "Bu ilan artık açık değil.";
+    }
+
+    private void Dismiss(int listingId)
+    {
+        _alerts.Remove(listingId);
+        _messages.Remove(listingId);
+    }
+
+    public void Dispose() => Live.Alerted -= OnAlerted;
+}

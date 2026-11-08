@@ -1,0 +1,41 @@
+﻿@inherits LayoutComponentBase
+
+<header class="site-header">
+    <nav class="container nav-bar">
+        <a class="brand" href="/">⚔️ PreBot</a>
+        <div class="nav-links">
+            <AuthorizeView>
+                <Authorized>
+                    <NavLink href="/havuz">Havuz</NavLink>
+                    <NavLink href="/ilan-ac">İlan aç</NavLink>
+                    <NavLink href="/profil">@context.User.Identity?.Name</NavLink>
+                </Authorized>
+                <NotAuthorized>
+                    <a class="btn btn-sm btn-gold" href="/giris">Giriş yap</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </nav>
+</header>
+
+<main class="container py-4">
+    @Body
+</main>
+
+<footer class="site-footer">
+    <div class="container">
+        <a href="/gizlilik">Gizlilik ve KVKK</a> ·
+        <a href="/kosullar">Kullanım koşulları</a>
+        <p class="mt-2 mb-0 small">
+            PreBot, Riot Games tarafından onaylanmamıştır ve Riot Games'in ya da League of Legends'ın
+            yapımına veya yönetimine resmi olarak dahil olan kişilerin görüşlerini yansıtmaz.
+            League of Legends, Riot Games, Inc.'in ticari markasıdır.
+        </p>
+    </div>
+</footer>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Beklenmeyen bir hata oluştu.
+    <a href="." class="reload">Sayfayı yenile</a>
+    <span class="dismiss">🗙</span>
+</div>

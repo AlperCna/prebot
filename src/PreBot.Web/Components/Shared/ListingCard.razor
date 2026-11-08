@@ -1,0 +1,55 @@
+@{
+    var l = View.Listing;
+    var isHost = l.HostUserId == UserId;
+    var joined = View.ActiveSlots.Any(s => s.UserId == UserId);
+    var missing = l.SlotsNeeded - l.SlotsFilled;
+}
+
+<div class="pb-card listing-card @(Highlight ? "highlight" : "")">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+            <div class="listing-title">
+                @Format.RoleLabel(l.Role) lazım
+                <span class="rank-chip">@TurkishNames.RankRange(l.MinRank, l.MaxRank)</span>
+            </div>
+            <div class="text-dim small mt-1">
+                @Names.GetValueOrDefault(l.HostUserId, "Bir oyuncu") ·
+                @if (l.Status == ListingStatus.Open)
+                {
+                    <span>@missing kişi eksik · kapanış @Format.TimeLeft(l.ExpiresAtUtc)</span>
+                }
+                else if (l.Status == ListingStatus.Filled)
+                {
+                    <span class="text-success">kadro tamam</span>
+                }
+            </div>
+            @if (l.Note is not null)
+            {
+                <div class="listing-note">“@l.Note”</div>
+            }
+        </div>
+        <div class="text-end flex-shrink-0">
+            @if (isHost)
+            {
+                <a class="btn btn-sm btn-outline-light" href="/ilan/@l.Id">Senin ilanın</a>
+            }
+            else if (joined)
+            {
+                <a class="btn btn-sm btn-outline-success" href="/ilan/@l.Id">Katıldın ✓</a>
+            }
+            else if (l.Status == ListingStatus.Open)
+            {
+                <button class="btn btn-sm btn-gold" disabled="@Busy" @onclick="() => OnJoin.InvokeAsync(l.Id)">Katıl</button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ListingView View { get; set; } = default!;
+    [Parameter] public IReadOnlyDictionary<ulong, string> Names { get; set; } = new Dictionary<ulong, string>();
+    [Parameter] public ulong UserId { get; set; }
+    [Parameter] public EventCallback<int> OnJoin { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Highlight { get; set; }
+}

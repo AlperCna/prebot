@@ -1,0 +1,23 @@
+@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>Hata · PreBot</PageTitle>
+
+<div class="pb-card">
+    <h1 class="h4">Bir şeyler ters gitti 😕</h1>
+    <p class="text-dim">İsteğin işlenirken bir hata oluştu. Biraz sonra tekrar dene.</p>
+    @if (!string.IsNullOrEmpty(RequestId))
+    {
+        <p class="small text-dim mb-0">Hata kodu: <code>@RequestId</code></p>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

@@ -184,7 +184,7 @@ public sealed class PreServiceTests : IDisposable
         Assert.Equal([other], result.LeftListingIds);
         Assert.Single(result.RemovedListings, r => r.MessageId == 555);
         await using var db = _t.NewContext();
-        Assert.False(await db.Players.AnyAsync(p => p.DiscordUserId == 10));
+        Assert.False(await db.Players.AnyAsync(p => p.UserId == 10));
         Assert.False(await db.ListingSlots.AnyAsync(s => s.UserId == 10));
         Assert.False(await db.Listings.AnyAsync(l => l.Id == own));
         Assert.Equal(ListingStatus.Open, (await db.Listings.SingleAsync(l => l.Id == other)).Status);

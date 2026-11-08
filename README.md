@@ -25,7 +25,32 @@ Gelmedi: [Gelmedi, yeniden ara] → yer boşalır, bot yeniden arar
 - Sadece seçilen kişiler etiketlenir; `@everyone` ya da rol pingi atılmaz.
 - Müsaitlik süresi dolunca kişi havuzdan kendiliğinden çıkar.
 
-## Komutlar
+## 🌐 Web uygulaması (yeni, asıl ürün)
+
+Discord Türkiye'de erişime kapalı olduğu için (Ekim 2024'ten beri) asıl ürün artık bir web sitesi. Discord botu yardımcı kanal olarak kalıyor. Gerekçeler [arastirma/reports/Web uygulaması mı Discord mu.md](arastirma/reports/Web%20uygulaması%20mı%20Discord%20mu.md) raporunda.
+
+```bash
+dotnet run --project src/PreBot.Web --launch-profile http
+```
+
+Tarayıcıda <http://localhost:5215> adresini aç. Yerelde **test girişi** var: herhangi bir isimle giriş yapabilirsin. İki oyuncuyu aynı anda denemek için bir sekmede `localhost:5215`, diğerinde `127.0.0.1:5215` aç; ikisi ayrı oturum gibi davranır.
+
+| Sayfa | Ne yapar |
+|---|---|
+| `/havuz` | "Şu an müsaitim" butonu, canlı havuz, açık ilanlar. Uygun bir ilan açılınca sayfada uyarı çıkar. |
+| `/ilan-ac` | Eksik kişi için ilan açar, uygun oyunculara dalga dalga haber verir |
+| `/ilan/{id}` | Katıl, Vazgeç, Gelmedi-yeniden ara, Kapat butonları ve paylaşılabilir link. Riot ID'leri yalnızca ilandakiler görür. |
+| `/profil` | Görünen isim, Riot ID, verilerini silme |
+
+Bütün sayfalar canlı: biri katılınca diğer ekranlar yenilemeye gerek kalmadan güncellenir (Blazor Interactive Server, SignalR).
+
+**Sıradakiler:**
+- Telefona ve PC'ye push bildirimi (PWA)
+- "Bana haber ver" kalıcı uyarıları
+- Google ile giriş
+- Yayına alma
+
+## Discord botu komutları
 
 | Komut | Ne yapar |
 |---|---|

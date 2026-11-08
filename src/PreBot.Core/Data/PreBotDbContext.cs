@@ -9,6 +9,7 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
     public DbSet<Availability> Availabilities => Set<Availability>();
     public DbSet<Listing> Listings => Set<Listing>();
     public DbSet<ListingSlot> ListingSlots => Set<ListingSlot>();
+    public DbSet<UserAccount> Accounts => Set<UserAccount>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -21,8 +22,8 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
     {
         modelBuilder.Entity<Player>(e =>
         {
-            e.HasKey(p => p.DiscordUserId);
-            e.Property(p => p.DiscordUserId).ValueGeneratedNever();
+            e.HasKey(p => p.UserId);
+            e.Property(p => p.UserId).ValueGeneratedNever();
             e.Property(p => p.RiotId).HasMaxLength(32);
         });
 
@@ -41,6 +42,15 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
                 .WithOne()
                 .HasForeignKey(s => s.ListingId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserAccount>(e =>
+        {
+            e.Property(a => a.Provider).HasMaxLength(16);
+            e.Property(a => a.ProviderKey).HasMaxLength(128);
+            e.Property(a => a.DisplayName).HasMaxLength(32);
+            e.Ignore(a => a.UserId);
+            e.HasIndex(a => new { a.Provider, a.ProviderKey }).IsUnique();
         });
 
         modelBuilder.Entity<ListingSlot>(e =>

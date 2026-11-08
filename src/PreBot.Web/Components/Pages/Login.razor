@@ -1,0 +1,36 @@
+@page "/giris"
+@inject IWebHostEnvironment Env
+
+<PageTitle>Giriş · PreBot</PageTitle>
+
+<div class="pb-card mx-auto mt-4" style="max-width: 26rem">
+    <h1 class="h4 mb-3">Giriş yap</h1>
+
+    @if (Env.IsDevelopment())
+    {
+        <p class="text-dim small">
+            🧪 <strong>Test girişi</strong> (yalnızca senin bilgisayarında çalışır). Herhangi bir isim yaz.
+            İki farklı tarayıcıda iki farklı isimle girip iki oyuncu gibi deneyebilirsin.
+        </p>
+        @if (Hata == "isim")
+        {
+            <div class="alert alert-warning py-2 small">İsim en az 2 karakter olmalı.</div>
+        }
+        <form method="post" action="/auth/dev-login">
+            <AntiforgeryToken />
+            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+            <label class="form-label" for="name">Görünen isim</label>
+            <input id="name" name="name" class="form-control mb-3" maxlength="32" placeholder="ör. Alper" required autofocus />
+            <button type="submit" class="btn btn-gold w-100">Giriş yap</button>
+        </form>
+    }
+    else
+    {
+        <p class="text-dim">Google ile giriş çok yakında burada olacak.</p>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Hata { get; set; }
+}

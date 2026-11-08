@@ -1,0 +1,96 @@
+@page "/profil"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inherits UserComponentBase
+
+<PageTitle>Profil · PreBot</PageTitle>
+
+@if (Account is null)
+{
+    return;
+}
+
+<h1 class="h3 mb-3">Profil</h1>
+
+<div class="pb-card">
+    <label class="form-label">Görünen isim</label>
+    <input class="form-control mb-3" maxlength="32" @bind="_name" />
+
+    <label class="form-label">Riot ID</label>
+    <input class="form-control" maxlength="22" placeholder="ör. Oyuncu#TR1" @bind="_riotId" />
+    <div class="text-dim small mt-1 mb-3">Yalnızca katıldığın ya da açtığın ilandaki oyuncular görür, oyunda seni davet edebilsinler diye.</div>
+
+    @if (_message is not null)
+    {
+        <div class="alert @(_ok ? "alert-success" : "alert-warning") py-2">@_message</div>
+    }
+
+    <button class="btn btn-gold" @onclick="SaveAsync">Kaydet</button>
+</div>
+
+<div class="section-title">Hesap</div>
+<div class="pb-card">
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-light" href="/auth/logout" data-enhance-nav="false">Çıkış yap</a>
+        @if (!_confirmDelete)
+        {
+            <button class="btn btn-outline-danger" @onclick="() => _confirmDelete = true">Verilerimi sil</button>
+        }
+        else
+        {
+            <button class="btn btn-danger" @onclick="DeleteAsync">Evet, her şeyi kalıcı olarak sil</button>
+            <button class="btn btn-outline-light" @onclick="() => _confirmDelete = false">Vazgeç</button>
+        }
+    </div>
+    @if (_confirmDelete)
+    {
+        <div class="text-dim small mt-2">Hesabın, Riot ID'n, müsaitliğin ve ilanların silinir. Katıldığın ilanlardaki yerin boşaltılır. Geri alınamaz.</div>
+    }
+</div>
+
+@code {
+    private string _name = "";
+    private string? _riotId;
+    private string? _message;
+    private bool _ok;
+    private bool _confirmDelete;
+    private bool _loaded;
+
+    protected override async Task LoadAsync()
+    {
+        // Load once; live refreshes must not overwrite what the user is typing.
+        if (_loaded)
+        {
+            return;
+        }
+
+        _loaded = true;
+        _name = Account!.DisplayName;
+        _riotId = await Pre.GetRiotIdAsync(UserId);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (!await Accounts.RenameAsync(UserId, _name))
+        {
+            (_ok, _message) = (false, "İsim en az 2 karakter olmalı.");
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_riotId) && !await Pre.SetRiotIdAsync(UserId, _riotId))
+        {
+            (_ok, _message) = (false, "Bu bir Riot ID'ye benzemiyor. İsim#ETİKET biçiminde yaz, ör. Oyuncu#TR1.");
+            return;
+        }
+
+        (_ok, _message) = (true, "Kaydedildi. İsim değişikliği üst menüde bir sonraki girişte görünür.");
+        Live.PublishChanged();
+    }
+
+    private async Task DeleteAsync()
+    {
+        await Accounts.DeleteAccountAsync(UserId);
+        Live.PublishChanged();
+        Navigation.NavigateTo("/auth/logout", forceLoad: true);
+    }
+}

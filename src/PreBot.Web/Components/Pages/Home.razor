@@ -1,0 +1,45 @@
+﻿@page "/"
+
+<PageTitle>PreBot · Flex için 5. kişi</PageTitle>
+
+<section class="hero">
+    <h1>Flex'e 4 kişi kaldınız mı?<br /><span class="text-gold">5. kişiyi dakikalar içinde bulun.</span></h1>
+    <p class="lead mt-3">
+        Ranked Flex 4 kişilik partiyi kabul etmiyor. PreBot, şu an müsait olan ve rolü, rankı size uyan
+        oyunculara anında haber verir. İlk "Katıl" diyen yeri alır, Riot ID'si size gelir.
+    </p>
+    <div class="d-flex gap-2 flex-wrap mt-4">
+        <AuthorizeView>
+            <Authorized>
+                <a class="btn btn-gold btn-lg" href="/havuz">Havuza git</a>
+                <a class="btn btn-outline-light btn-lg" href="/ilan-ac">Pre lazım, ilan aç</a>
+            </Authorized>
+            <NotAuthorized>
+                <a class="btn btn-gold btn-lg" href="/giris">Hemen başla</a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+</section>
+
+<div class="steps">
+    <div class="pb-card">
+        <div class="step-no">1</div>
+        <div class="fw-semibold">"Müsaitim" de</div>
+        <div class="text-dim small">Rolünü ve rankını seç, 30 dk – 2 saat havuzda kal. Süre dolunca kendiliğinden çıkarsın.</div>
+    </div>
+    <div class="pb-card">
+        <div class="step-no">2</div>
+        <div class="fw-semibold">Eksik kalınca ilan aç</div>
+        <div class="text-dim small">"Destek lazım, Altın–Platin." En uygun kişilerden başlayarak dalga dalga haber gider.</div>
+    </div>
+    <div class="pb-card">
+        <div class="step-no">3</div>
+        <div class="fw-semibold">İlk basan alır</div>
+        <div class="text-dim small">Katılanın Riot ID'si sana gelir, oyunda davet edersin. Gelmezse tek tıkla yeniden aranır.</div>
+    </div>
+</div>
+
+<p class="text-dim small mt-4">
+    Kimse spamlanmaz: aynı kişiye 15 dakikada en fazla bir bildirim gider, ilanlar 15 dakikada kapanır.
+    Ücretsiz ve açık kaynak.
+</p>
