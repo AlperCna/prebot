@@ -1,0 +1,187 @@
+@inject IJSRuntime JS
+@inject VapidKeys Keys
+@inject SubscriptionService Subscriptions
+@inject PushSender Sender
+
+@if (_state is null)
+{
+    if (!Compact)
+    {
+        <div class="text-dim small">Bildirim durumu kontrol ediliyor…</div>
+    }
+    return;
+}
+
+@if (Compact && !IsActionable(_state))
+{
+    return; // already on, declined, or impossible here: keep the pool page clean (details live on /bildirimler)
+}
+
+<div class="pb-card @(Compact ? "push-prompt" : "")">
+    @if (!_state.Supported && _state.Ios && !_state.Standalone)
+    {
+        <div class="fw-semibold">📱 iPhone'da bildirim almak için</div>
+        <ol class="small text-dim mb-0 mt-1 ps-3">
+            <li>Safari'de alttaki <strong>Paylaş</strong> (⬆️) düğmesine dokun.</li>
+            <li><strong>Ana Ekrana Ekle</strong>'yi seç.</li>
+            <li>PreBot'u ana ekrandan aç ve bu sayfaya tekrar gel.</li>
+        </ol>
+    }
+    else if (!_state.Supported)
+    {
+        <div class="small text-dim">Bu tarayıcı bildirim desteklemiyor. Chrome, Edge, Firefox ya da Samsung Internet dene.</div>
+    }
+    else if (_state.Permission == "denied")
+    {
+        <div class="fw-semibold">🔕 Bildirimler engellenmiş</div>
+        <div class="small text-dim">Adres çubuğundaki kilit simgesine dokun → <strong>Bildirimler: İzin ver</strong>, sonra sayfayı yenile.</div>
+    }
+    else if (_state.Endpoint is null)
+    {
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <div class="fw-semibold">🔔 Sekme kapalıyken de haber al</div>
+                <div class="small text-dim">Uygun ilan açılınca telefonuna ya da bilgisayarına bildirim gelir, tek dokunuşla katılırsın.</div>
+            </div>
+            <button class="btn btn-gold" disabled="@_busy" @onclick="EnableAsync">Bu cihazda bildirimleri aç</button>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <div class="fw-semibold">🔔 Bu cihazda bildirimler açık</div>
+                <div class="small text-dim">Toplam @_devices cihazında açık. Telefonunda da açmak için siteyi orada açıp aynı düğmeye bas.</div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-light" disabled="@_busy" @onclick="TestAsync">Test bildirimi</button>
+                <button class="btn btn-sm btn-outline-danger" disabled="@_busy" @onclick="DisableAsync">Kapat</button>
+            </div>
+        </div>
+    }
+
+    @if (_message is not null)
+    {
+        <div class="small mt-2 @(_ok ? "text-success" : "text-warning")">@_message</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ulong UserId { get; set; }
+
+    /// <summary>Compact: a one-line prompt that disappears once notifications are on.</summary>
+    [Parameter] public bool Compact { get; set; }
+
+    private PushState? _state;
+    private int _devices;
+    private bool _busy;
+    private bool _ok;
+    private string? _message;
+
+    private sealed record PushState(bool Supported, bool Ios, bool Standalone, string Permission, string? Endpoint);
+
+    /// <summary>Something the user can do right now: turn notifications on, or install the app on iPhone.</summary>
+    private static bool IsActionable(PushState s) =>
+        (s.Supported && s.Permission != "denied" && s.Endpoint is null)
+        || (!s.Supported && s.Ios && !s.Standalone);
+
+    private sealed record SubscribeResult(string? Error, string? Endpoint, string? P256dh, string? Auth, string? Device);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await RefreshAsync();
+
+        // Already subscribed in this browser: make sure the server links it to the signed-in user
+        // (e.g. someone else used this browser before). No prompt — permission is already granted.
+        if (_state is { Endpoint: not null, Permission: "granted" })
+        {
+            await SaveSubscriptionAsync();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            _state = await JS.InvokeAsync<PushState>("prebot.push.state");
+        }
+        catch (JSException)
+        {
+            _state = new PushState(false, false, false, "unsupported", null);
+        }
+
+        _devices = await Subscriptions.CountPushDevicesAsync(UserId);
+    }
+
+    private async Task<bool> SaveSubscriptionAsync()
+    {
+        var result = await JS.InvokeAsync<SubscribeResult>("prebot.push.subscribe", Keys.PublicKey);
+        if (result.Error is not null || result.Endpoint is null || result.P256dh is null || result.Auth is null)
+        {
+            (_ok, _message) = (false, result.Error switch
+            {
+                "denied" => "İzin verilmedi. Fikrini değiştirirsen tarayıcı ayarlarından izin verebilirsin.",
+                "default" => "İzin penceresi kapatıldı. Tekrar dene.",
+                _ => "Bu tarayıcıda bildirim açılamadı.",
+            });
+            return false;
+        }
+
+        await Subscriptions.SavePushSubscriptionAsync(UserId, result.Endpoint, result.P256dh, result.Auth, result.Device);
+        return true;
+    }
+
+    private async Task EnableAsync()
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            if (await SaveSubscriptionAsync())
+            {
+                var sent = await Sender.SendTestAsync(UserId);
+                (_ok, _message) = (true, sent > 0
+                    ? "Açıldı! Az önce bir test bildirimi gönderdim."
+                    : "Açıldı, ama test bildirimi iletilemedi. Biraz sonra Test bildirimi'ne bas.");
+            }
+        }
+        catch (JSException)
+        {
+            (_ok, _message) = (false, "Bu tarayıcıda bildirim açılamadı.");
+        }
+
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    private async Task DisableAsync()
+    {
+        _busy = true;
+        var endpoint = await JS.InvokeAsync<string?>("prebot.push.unsubscribe");
+        if (endpoint is not null)
+        {
+            await Subscriptions.RemovePushSubscriptionAsync(endpoint);
+        }
+
+        (_ok, _message) = (true, "Bu cihazda bildirimler kapatıldı.");
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    private async Task TestAsync()
+    {
+        _busy = true;
+        var sent = await Sender.SendTestAsync(UserId);
+        (_ok, _message) = sent > 0
+            ? (true, $"Test bildirimi {sent} cihaza gönderildi.")
+            : (false, "Hiçbir cihaza iletilemedi. Bildirimleri kapatıp yeniden açmayı dene.");
+        _busy = false;
+    }
+}

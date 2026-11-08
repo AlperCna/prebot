@@ -89,6 +89,55 @@ public static class Matcher
             .ToList();
     }
 
+    /// <summary>Most "Bana haber ver" subscribers notified in one wave.</summary>
+    public const int AlertWaveSize = 10;
+
+    /// <summary>Is a local hour inside [from, to)? Windows may wrap past midnight; from == to means all day.</summary>
+    public static bool InHours(int fromHour, int toHour, int hour)
+    {
+        if (fromHour == toHour)
+        {
+            return true;
+        }
+
+        return fromHour < toHour
+            ? hour >= fromHour && hour < toHour
+            : hour >= fromHour || hour < toHour;
+    }
+
+    /// <summary>
+    /// Picks "Bana haber ver" subscribers for a wave: same role/rank rules as available players,
+    /// plus their hour window, a per-person cooldown and a daily limit. Least recently notified go first.
+    /// </summary>
+    public static IReadOnlyList<AlertSubscription> FindAlertCandidates(
+        IEnumerable<AlertSubscription> subscriptions,
+        MatchCriteria criteria,
+        int wave,
+        DateTime nowUtc,
+        DateTime localNow,
+        TimeSpan cooldown,
+        int dailyLimit,
+        IReadOnlySet<ulong> excludedUserIds)
+    {
+        var (min, max) = WidenedRange(criteria, wave);
+        var today = DateOnly.FromDateTime(localNow);
+
+        return subscriptions
+            .Where(s => s.Enabled)
+            .Where(s => s.UserId != criteria.HostUserId && !excludedUserIds.Contains(s.UserId))
+            .Where(s => RoleFits(criteria.Role, s.Role))
+            .Where(s => s.Rank >= min && s.Rank <= max)
+            .Where(s => InHours(s.FromHour, s.ToHour, localNow.Hour))
+            .Where(s => s.LastNotifiedAtUtc is null || nowUtc - s.LastNotifiedAtUtc.Value >= cooldown)
+            .Where(s => s.CountDate != today || s.CountToday < dailyLimit)
+            .OrderBy(s => RankDistance(s.Rank, criteria.MinRank, criteria.MaxRank))
+            .ThenBy(s => s.Role == criteria.Role ? 0 : 1)
+            .ThenBy(s => s.LastNotifiedAtUtc ?? DateTime.MinValue)
+            .ThenBy(s => s.UserId)
+            .Take(AlertWaveSize)
+            .ToList();
+    }
+
     /// <summary>How many available players could fit this listing at all (widest wave, ignoring cooldown).</summary>
     public static int CountPotentialMatches(IEnumerable<Availability> pool, MatchCriteria criteria, DateTime nowUtc)
     {

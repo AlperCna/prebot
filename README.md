@@ -44,11 +44,30 @@ Tarayıcıda <http://localhost:5215> adresini aç. Yerelde **test girişi** var:
 
 Bütün sayfalar canlı: biri katılınca diğer ekranlar yenilemeye gerek kalmadan güncellenir (Blazor Interactive Server, SignalR).
 
+### 🔔 Bildirimler (PWA + Web Push)
+
+- **`/bildirimler`**: bu cihazda bildirimleri aç/kapat ve test bildirimi gönder. Bir kişi birden fazla cihaz (telefon + PC) kaydedebilir.
+- **Bildirimin "Katıl" butonu** ilanı açar ve seni otomatik katar (`/ilan/{id}?katil=1`). Chrome, Edge ve Firefox'ta buton olarak görünür. Safari'de bildirime dokununca ilan açılır.
+- **"Bana haber ver"**: her akşam "Müsaitim" demek istemeyenler için kalıcı uyarı. Rol, rank ve Türkiye saatiyle bir zaman aralığı seçilir. Sıra ve sınırlar:
+  - Önce o an müsait olanlara haber gider. "Bana haber ver" diyenlere 2. dalgadan itibaren, ya da müsait kimse uymuyorsa hemen gider.
+  - Kişi başına 30 dakikada en fazla 1, günde en fazla 5 bildirim.
+- **Spam koruması:**
+  - Aynı ilan için kimseye iki kez haber gitmez.
+  - Müsait oyunculara en fazla 3 dakikada bir bildirim gider.
+  - Bildirim 120 saniyede geçersiz olur; grup dolduktan sonra gelmez.
+- **iPhone:** bildirim almak için siteyi önce Safari'de **Paylaş → Ana Ekrana Ekle** ile kurmak gerekiyor (Apple kısıtı). Sayfa bunu adım adım anlatıyor.
+- **Anahtarlar:** yerelde VAPID anahtarları otomatik üretilip `%LOCALAPPDATA%\PreBot` klasöründe tutulur. Üretimde `Push:PublicKey`, `Push:PrivateKey` ve `Push:Subject` ayarlanmalı.
+
+**Veriler nerede?** Yerelde veritabanı ve anahtarlar `%LOCALAPPDATA%\PreBot` klasöründe tutulur, proje klasöründe değil. Sebebi:
+- OneDrive gibi senkronize klasörler SQLite'ın kilit dosyalarını bozuyor.
+- Özel anahtarın buluta yüklenmemesi gerekiyor.
+
+Bu konum `DataDirectory` ayarıyla değiştirilebilir.
+
 **Sıradakiler:**
-- Telefona ve PC'ye push bildirimi (PWA)
-- "Bana haber ver" kalıcı uyarıları
 - Google ile giriş
-- Yayına alma
+- Yayına alma (Docker + HTTPS + alan adı)
+- Discord botunu web havuzuna bağlama
 
 ## Discord botu komutları
 

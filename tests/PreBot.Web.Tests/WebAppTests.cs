@@ -32,6 +32,8 @@ public sealed partial class WebAppTests : IDisposable
         {
             b.UseEnvironment(environment);
             b.UseSetting("ConnectionStrings:PreBot", $"Data Source={_dbPath}");
+            b.UseSetting("Push:PublicKey", TestKeys.PublicKey);
+            b.UseSetting("Push:PrivateKey", TestKeys.PrivateKey);
         });
         _factories.Add(factory);
         return factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -67,6 +69,45 @@ public sealed partial class WebAppTests : IDisposable
         Assert.Contains(expectedText, await response.Content.ReadAsStringAsync());
     }
 
+    private static readonly (string PublicKey, string PrivateKey) TestKeys = PreBot.Web.Push.VapidKeys.Generate();
+
+    [Theory]
+    [InlineData("/manifest.webmanifest", "standalone")]
+    [InlineData("/sw.js", "notificationclick")]
+    [InlineData("/js/prebot.js", "pushManager")]
+    public async Task Pwa_files_are_served(string path, string expectedText)
+    {
+        var response = await Client().GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(expectedText, await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("/icons/icon-192.png")]
+    [InlineData("/icons/icon-512.png")]
+    [InlineData("/icons/icon-maskable-512.png")]
+    [InlineData("/icons/badge-72.png")]
+    public async Task Pwa_icons_are_png(string path)
+    {
+        var response = await Client().GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/png", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public void Generated_vapid_keys_have_the_right_shape()
+    {
+        var (publicKey, privateKey) = PreBot.Web.Push.VapidKeys.Generate();
+
+        var pub = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlDecode(publicKey);
+        var priv = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlDecode(privateKey);
+        Assert.Equal(65, pub.Length);   // uncompressed P-256 point
+        Assert.Equal(0x04, pub[0]);
+        Assert.Equal(32, priv.Length);
+    }
+
     [Fact]
     public async Task Unknown_page_shows_turkish_not_found()
     {
@@ -81,6 +122,7 @@ public sealed partial class WebAppTests : IDisposable
     [InlineData("/ilan-ac")]
     [InlineData("/ilan/1")]
     [InlineData("/profil")]
+    [InlineData("/bildirimler")]
     public async Task Signed_in_pages_redirect_to_login_and_remember_where_you_were(string path)
     {
         var response = await Client().GetAsync(path);

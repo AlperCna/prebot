@@ -136,6 +136,9 @@
     [Parameter] public int Id { get; set; }
     [SupplyParameterFromQuery] public int? Yeni { get; set; }
 
+    /// <summary>?katil=1 comes from the notification's "Katıl" button: join right away.</summary>
+    [SupplyParameterFromQuery] public int? Katil { get; set; }
+
     private ListingView? _view;
     private IReadOnlyDictionary<ulong, string> _names = new Dictionary<ulong, string>();
     private bool _busy;
@@ -155,6 +158,34 @@
             _names = await Accounts.GetDisplayNamesAsync(
                 _view.ActiveSlots.Select(s => s.UserId).Append(_view.Listing.HostUserId));
         }
+
+        await AutoJoinFromNotificationAsync();
+    }
+
+    private bool _autoJoinDone;
+
+    /// <summary>
+    /// Handles ?katil=1 once the listing is loaded — only in the live (interactive) render, never during
+    /// prerendering, so the seat is claimed exactly once.
+    /// </summary>
+    private async Task AutoJoinFromNotificationAsync()
+    {
+        if (Katil != 1 || _autoJoinDone || !RendererInfo.IsInteractive || _view is null)
+        {
+            return;
+        }
+
+        _autoJoinDone = true;
+        var l = _view.Listing;
+        var alreadyIn = l.HostUserId == UserId
+            || _view.ActiveSlots.Any(s => s.UserId == UserId)
+            || _view.LeftUserIds.Contains(UserId);
+        if (l.Status == ListingStatus.Open && !alreadyIn)
+        {
+            await JoinAsync();
+        }
+
+        Navigation.NavigateTo($"/ilan/{Id}", replace: true);
     }
 
     private async Task RunAsync(Func<Task<string?>> action)

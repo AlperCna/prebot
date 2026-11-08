@@ -211,3 +211,12 @@ h1:focus {
 .prose p, .prose li {
     color: #c9d1e0;
 }
+
+.push-prompt {
+    border-color: rgba(200, 170, 110, 0.5);
+}
+
+.form-check-input:checked {
+    background-color: var(--pb-gold);
+    border-color: var(--pb-gold);
+}

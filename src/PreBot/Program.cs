@@ -11,7 +11,14 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.Configure<DiscordOptions>(builder.Configuration.GetSection("Discord"));
 builder.Services.AddSingleton(builder.Configuration.GetSection("PreBot").Get<PreBotOptions>() ?? new PreBotOptions());
 
-var connectionString = builder.Configuration.GetConnectionString("PreBot") ?? "Data Source=prebot.db";
+// Locally the database lives in %LOCALAPPDATA%\PreBot: synced folders (OneDrive, Dropbox) break SQLite's lock files.
+var dataDirectory = builder.Configuration["DataDirectory"]
+    ?? (builder.Environment.IsDevelopment()
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PreBot")
+        : builder.Environment.ContentRootPath);
+Directory.CreateDirectory(dataDirectory);
+var connectionString = builder.Configuration.GetConnectionString("PreBot")
+    ?? $"Data Source={Path.Combine(dataDirectory, "prebot-discord.db")}";
 builder.Services.AddDbContextFactory<PreBotDbContext>(o => o.UseSqlite(connectionString));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PreService>();

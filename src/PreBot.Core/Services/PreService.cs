@@ -414,14 +414,44 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
                 .ToListAsync(ct))
             .ToHashSet();
 
-        var picked = Matcher.FindCandidates(pool, Criteria(listing), wave, now, PingCooldown, excluded);
+        var criteria = Criteria(listing);
+        var notify = new List<ulong>();
+
+        var picked = Matcher.FindCandidates(pool, criteria, wave, now, PingCooldown, excluded);
         foreach (var entry in picked)
         {
             entry.LastPingedAtUtc = now;
+            notify.Add(entry.UserId);
+        }
+
+        // "Bana haber ver" subscribers come after actively available players:
+        // from the second wave on, or right away when nobody available fits.
+        if (wave >= 1 || picked.Count == 0)
+        {
+            excluded.UnionWith(notify);
+            var localNow = TurkeyTime.ToLocal(now);
+            var today = DateOnly.FromDateTime(localNow);
+            var subscriptions = await db.AlertSubscriptions
+                .Where(s => s.CommunityId == listing.GuildId && s.Enabled)
+                .ToListAsync(ct);
+            var alerted = Matcher.FindAlertCandidates(
+                subscriptions, criteria, wave, now, localNow,
+                TimeSpan.FromMinutes(options.AlertCooldownMinutes), options.AlertDailyLimit, excluded);
+            foreach (var s in alerted)
+            {
+                s.LastNotifiedAtUtc = now;
+                s.CountToday = s.CountDate == today ? s.CountToday + 1 : 1;
+                s.CountDate = today;
+                notify.Add(s.UserId);
+            }
+        }
+
+        foreach (var userId in notify)
+        {
             db.ListingNotifications.Add(new ListingNotification
             {
                 ListingId = listingId,
-                UserId = entry.UserId,
+                UserId = userId,
                 Wave = wave,
                 SentAtUtc = now,
             });
@@ -429,7 +459,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return new WaveResult(listingId, wave, picked.Select(a => a.UserId).ToList());
+        return new WaveResult(listingId, wave, notify);
     }
 
     public async Task<IReadOnlyList<int>> GetDueWaveListingIdsAsync(CancellationToken ct = default)
@@ -512,6 +542,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             .ExecuteDeleteAsync(ct);
         await context.Listings.Where(l => l.HostUserId == userId).ExecuteDeleteAsync(ct);
         await context.Availabilities.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
+        await context.AlertSubscriptions.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
+        await context.PushSubscriptions.Where(p => p.UserId == userId).ExecuteDeleteAsync(ct);
         await context.Players.Where(p => p.UserId == userId).ExecuteDeleteAsync(ct);
         await tx.CommitAsync(ct);
 

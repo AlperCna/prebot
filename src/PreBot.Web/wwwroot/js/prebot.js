@@ -38,4 +38,97 @@ window.prebot = {
             return false;
         }
     },
+
+    // ---------- Web Push ----------
+    push: {
+        supported() {
+            return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+        },
+
+        // Everything the UI needs to show the right hint for this device.
+        async state() {
+            const ua = navigator.userAgent;
+            const ios = /iPhone|iPad|iPod/.test(ua);
+            const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+            const supported = window.prebot.push.supported();
+            let endpoint = null;
+            if (supported) {
+                const reg = await navigator.serviceWorker.getRegistration('/');
+                const sub = reg ? await reg.pushManager.getSubscription() : null;
+                endpoint = sub ? sub.endpoint : null;
+            }
+            return {
+                supported,
+                ios,
+                standalone,
+                permission: supported ? Notification.permission : 'unsupported',
+                endpoint,
+            };
+        },
+
+        // Asks permission (must run from a click) and subscribes this browser.
+        async subscribe(publicKey) {
+            if (!window.prebot.push.supported()) {
+                return { error: 'unsupported' };
+            }
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                return { error: permission };
+            }
+
+            const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            await navigator.serviceWorker.ready;
+            const key = window.prebot.push._toBytes(publicKey);
+
+            let sub = await reg.pushManager.getSubscription();
+            if (sub && !window.prebot.push._sameKey(sub, key)) {
+                await sub.unsubscribe(); // server keys changed: old subscription can't be used
+                sub = null;
+            }
+            if (!sub) {
+                sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+            }
+
+            const json = sub.toJSON();
+            return { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, device: window.prebot.push._device() };
+        },
+
+        async unsubscribe() {
+            const reg = await navigator.serviceWorker.getRegistration('/');
+            const sub = reg ? await reg.pushManager.getSubscription() : null;
+            if (!sub) {
+                return null;
+            }
+            const endpoint = sub.endpoint;
+            await sub.unsubscribe();
+            return endpoint;
+        },
+
+        _toBytes(base64url) {
+            const padded = (base64url + '='.repeat((4 - (base64url.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+            return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+        },
+
+        _sameKey(sub, key) {
+            const current = sub.options && sub.options.applicationServerKey;
+            if (!current) {
+                return true;
+            }
+            const a = new Uint8Array(current);
+            return a.length === key.length && a.every((v, i) => v === key[i]);
+        },
+
+        _device() {
+            const ua = navigator.userAgent;
+            const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad|iPod/.test(ua) ? 'iPhone' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : 'Cihaz';
+            const browser = /Edg\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung' : /OPR\//.test(ua) ? 'Opera'
+                : /Firefox/.test(ua) ? 'Firefox' : /Chrome/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : 'Tarayıcı';
+            return `${os} · ${browser}`;
+        },
+    },
 };
+
+// Register the service worker early so notification clicks work even before the user opens settings.
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => { /* not critical */ });
+}

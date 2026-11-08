@@ -487,3 +487,6 @@ $RECYCLE.BIN/
 *.db-wal
 .env
 
+# Web Push private key (generated locally)
+vapid-keys.json
+

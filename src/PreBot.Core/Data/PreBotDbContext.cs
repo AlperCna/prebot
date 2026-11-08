@@ -11,6 +11,8 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
     public DbSet<ListingSlot> ListingSlots => Set<ListingSlot>();
     public DbSet<UserAccount> Accounts => Set<UserAccount>();
     public DbSet<ListingNotification> ListingNotifications => Set<ListingNotification>();
+    public DbSet<WebPushSubscription> PushSubscriptions => Set<WebPushSubscription>();
+    public DbSet<AlertSubscription> AlertSubscriptions => Set<AlertSubscription>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -43,6 +45,22 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
                 .WithOne()
                 .HasForeignKey(s => s.ListingId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WebPushSubscription>(e =>
+        {
+            e.Property(p => p.Endpoint).HasMaxLength(1024);
+            e.Property(p => p.P256dh).HasMaxLength(256);
+            e.Property(p => p.Auth).HasMaxLength(128);
+            e.Property(p => p.Device).HasMaxLength(64);
+            e.HasIndex(p => p.Endpoint).IsUnique();
+            e.HasIndex(p => p.UserId);
+        });
+
+        modelBuilder.Entity<AlertSubscription>(e =>
+        {
+            e.HasIndex(a => new { a.CommunityId, a.UserId }).IsUnique();
+            e.HasIndex(a => new { a.CommunityId, a.Enabled });
         });
 
         modelBuilder.Entity<ListingNotification>(e =>

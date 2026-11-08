@@ -102,3 +102,49 @@ public sealed class ListingNotification
     public int Wave { get; set; }
     public DateTime SentAtUtc { get; set; }
 }
+
+/// <summary>A browser/device that agreed to receive push notifications (Web Push). A user can have several.</summary>
+public sealed class WebPushSubscription
+{
+    public int Id { get; set; }
+    public ulong UserId { get; set; }
+
+    /// <summary>Push service URL for this browser. Unique per browser install.</summary>
+    public string Endpoint { get; set; } = "";
+
+    public string P256dh { get; set; } = "";
+    public string Auth { get; set; } = "";
+
+    /// <summary>Short label to tell devices apart, e.g. "Android · Chrome".</summary>
+    public string? Device { get; set; }
+
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? LastSuccessAtUtc { get; set; }
+}
+
+/// <summary>
+/// "Notify me when a listing fits me" — a standing alert for people who don't press "available" every evening.
+/// They are notified after actively available players (from the second wave, or at once if nobody is available).
+/// </summary>
+public sealed class AlertSubscription
+{
+    public int Id { get; set; }
+    public ulong CommunityId { get; set; }
+    public ulong UserId { get; set; }
+    public Role Role { get; set; }
+    public Rank Rank { get; set; }
+
+    /// <summary>Turkey local time window [FromHour, ToHour). May wrap past midnight (e.g. 20 → 2). Equal = all day.</summary>
+    public int FromHour { get; set; }
+
+    public int ToHour { get; set; }
+
+    public bool Enabled { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? LastNotifiedAtUtc { get; set; }
+
+    /// <summary>Turkey local date that <see cref="CountToday"/> refers to.</summary>
+    public DateOnly? CountDate { get; set; }
+
+    public int CountToday { get; set; }
+}
