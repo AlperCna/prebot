@@ -77,7 +77,9 @@ PreBot denemesi: Flex'te 4 kisi kalinca 5. kisiyi bulmak icin yaptigim site.
 2) Davet kodu: $code  - adini ve kendine bir sifre yaz, kutucugu isaretle, gir
    (sifreyi ilk giriste sen belirlersin; baska yerde kullandigin sifre olmasin)
 3) Riot ID'ni kaydet ve "Bildirimleri ac"a bas
-4) Aksam oynayabileceksen "Su an musaitim" de ya da "Bana haber ver"i kur
+4) Havuz sayfasinda "Aksamlari bana haber ver"e bas (bir kez yeter);
+   o an oynayabiliyorsan "Su an musaitim" de, once sana sorulsun.
+   Mac ortasinda bildirim gelirse "Mactayim, sonra"ya bas.
 
 4 kisi kaldigimizda ilan acacagiz, bildirim gelince "Katil"a bas. Ilk basan alir.
 "@
