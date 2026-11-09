@@ -17,12 +17,19 @@ public sealed class PoolActions(
     IListingFeed feed,
     HostNotifier host,
     ActionLimiter limiter,
+    ModerationService moderation,
     ILogger<PoolActions> logger)
 {
     private const ulong Web = Communities.Web;
 
     public async Task<Availability> SetAvailableAsync(ulong userId, Role role, Rank rank, TimeSpan duration)
     {
+        // A page opened before the ban keeps working until it reloads; its buttons must not.
+        if (await moderation.IsBannedAsync(userId))
+        {
+            throw new InvalidOperationException("This account was closed.");
+        }
+
         var entry = await pre.SetAvailableAsync(Web, userId, role, rank, duration);
         live.PublishChanged();
 
@@ -44,17 +51,24 @@ public sealed class PoolActions(
     /// <param name="withLobby">The host also opens a custom game lobby in the client; notifications point to it.</param>
     /// <param name="lobbyLocked">Give that lobby a password, so only players PreBot told can enter.</param>
     /// <param name="announceChannelId">Discord channel where /pre-lazim was used: the listing is announced there too.</param>
+    /// <param name="reuseLobby">Reopening: keep the lobby (name and password) the host already has open in the client.</param>
     public async Task<CreateListingResult> CreateListingAsync(
         ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note,
-        bool withLobby = false, bool lobbyLocked = false, ulong? announceChannelId = null)
+        bool withLobby = false, bool lobbyLocked = false, ulong? announceChannelId = null, Listing? reuseLobby = null)
     {
         if (!limiter.TryAcquire(LimitedAction.CreateListing, hostUserId, out var retryAfter))
         {
             return new CreateListingResult(null, null, 0, retryAfter);
         }
 
+        if (await moderation.IsBannedAsync(hostUserId))
+        {
+            return new CreateListingResult(null, null, 0);
+        }
+
         var result = await pre.CreateListingAsync(
-            Web, Web, hostUserId, role, min, max, slots, note, withLobby ? Lobby.NewCode() : null, lobbyLocked);
+            Web, Web, hostUserId, role, min, max, slots, note,
+            withLobby ? reuseLobby?.LobbyCode ?? Lobby.NewCode() : null, lobbyLocked, reuseLobby?.LobbyPassword);
         if (result.Listing is not null)
         {
             live.PublishChanged();
@@ -71,6 +85,11 @@ public sealed class PoolActions(
         if (!limiter.TryAcquire(LimitedAction.Join, userId, out var retryAfter))
         {
             return new ClaimOutcome(ClaimResult.RateLimited, RetryAfter: retryAfter);
+        }
+
+        if (await moderation.IsBannedAsync(userId))
+        {
+            return new ClaimOutcome(ClaimResult.NotFound);
         }
 
         // Without a Riot ID the host cannot invite them, and a full listing stops looking for anyone else.
@@ -139,10 +158,11 @@ public sealed class PoolActions(
         }
 
         var l = view.Listing;
-        return await CreateListingAsync(hostUserId, l.Role, l.MinRank, l.MaxRank, l.SlotsNeeded, l.Note, l.LobbyCode is not null, l.LobbyLocked);
+        return await CreateListingAsync(
+            hostUserId, l.Role, l.MinRank, l.MaxRank, l.SlotsNeeded, l.Note, l.LobbyCode is not null, l.LobbyLocked, reuseLobby: l);
     }
 
-    /// <summary>The host got their player from the custom game lobby: close the listing as filled.</summary>
+    /// <summary>Someone came in through the custom game lobby: one seat less to fill (closes when none are left).</summary>
     public async Task<HostActionOutcome> MarkFilledViaLobbyAsync(int listingId, ulong hostUserId)
     {
         var outcome = await pre.MarkFilledViaLobbyAsync(listingId, hostUserId);
@@ -153,6 +173,28 @@ public sealed class PoolActions(
         }
 
         return outcome;
+    }
+
+    /// <summary>
+    /// The operator closes an account: it can no longer sign in, its seats go back to their hosts (who get new
+    /// players through the next wave) and its own listings close.
+    /// </summary>
+    public async Task BanAsync(ulong userId)
+    {
+        await moderation.BanAsync(userId);
+        var (left, closed) = await pre.RemoveBannedUserAsync(userId);
+        live.PublishChanged();
+        foreach (var listingId in left)
+        {
+            await waves.RunAsync(listingId);
+            Background($"notify host of ban {listingId}", () => host.LeftAsync(listingId, userId));
+            Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
+        }
+
+        foreach (var listingId in closed)
+        {
+            Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
+        }
     }
 
     private void Background(string what, Func<Task> work) => _ = Task.Run(async () =>

@@ -24,9 +24,17 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
     // ---------- Availability pool ----------
 
+    /// <summary>Longest "I'm available" (2 hours + one "+1 saat"), so the pool does not fill with people who left.</summary>
+    public static readonly TimeSpan MaxAvailability = TimeSpan.FromHours(3);
+
     public async Task<Availability> SetAvailableAsync(
         ulong guildId, ulong userId, Role role, Rank rank, TimeSpan duration, CancellationToken ct = default)
     {
+        if (duration > MaxAvailability)
+        {
+            duration = MaxAvailability;
+        }
+
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var now = Now;
         await EnsurePlayerAsync(db, userId, now, ct);
@@ -105,6 +113,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         string? note,
         string? lobbyCode = null,
         bool lobbyLocked = false,
+        string? lobbyPassword = null,
         CancellationToken ct = default)
     {
         if (minRank > maxRank)
@@ -150,6 +159,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             Note = note,
             LobbyCode = lobbyCode,
             LobbyLocked = lobbyCode is not null && lobbyLocked,
+            LobbyPassword = lobbyCode is not null && lobbyLocked ? lobbyPassword ?? Lobby.NewPassword() : null,
             CreatedAtUtc = now,
             ExpiresAtUtc = now.AddMinutes(options.ListingMinutes),
             NextWaveAtUtc = now,
@@ -216,6 +226,16 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
     /// Listings a user hosts or holds a seat in that are still relevant (open, or filled recently),
     /// so they can find the Riot IDs they need to invite each other.
     /// </summary>
+    /// <summary>The host's most recent listing, so the form can start with the same lobby choice.</summary>
+    public async Task<Listing?> GetLastHostedAsync(ulong communityId, ulong hostUserId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.Listings.AsNoTracking()
+            .Where(l => l.GuildId == communityId && l.HostUserId == hostUserId)
+            .OrderByDescending(l => l.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+    }
+
     public async Task<IReadOnlyList<ListingView>> GetMyListingsAsync(ulong communityId, ulong userId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -361,8 +381,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
     }
 
     /// <summary>
-    /// The host got their player through the custom game lobby: the listing is done (counted as filled)
-    /// and stops notifying people.
+    /// Someone joined through the custom game lobby: one more seat is taken. When that was the last missing
+    /// seat, the listing is done (counted as filled) and stops notifying people; otherwise it keeps looking.
     /// </summary>
     public async Task<HostActionOutcome> MarkFilledViaLobbyAsync(int listingId, ulong hostUserId, CancellationToken ct = default)
     {
@@ -379,18 +399,25 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             return new HostActionOutcome(HostActionResult.NotHost);
         }
 
-        var done = await db.Listings
-            .Where(l => l.Id == listingId && l.Status == ListingStatus.Open)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(l => l.Status, ListingStatus.Filled)
-                .SetProperty(l => l.NextWaveAtUtc, (DateTime?)null), ct);
-        if (done == 0)
+        var counted = await db.Listings
+            .Where(l => l.Id == listingId && l.Status == ListingStatus.Open && l.SlotsFilled < l.SlotsNeeded)
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.SlotsFilled, l => l.SlotsFilled + 1), ct);
+        if (counted == 0)
         {
             return new HostActionOutcome(HostActionResult.NothingToDo);
         }
 
-        Record(db, MetricKind.FilledViaLobby, listing.GuildId, listingId, now, value: (int)(now - listing.CreatedAtUtc).TotalSeconds);
-        await db.SaveChangesAsync(ct);
+        var filled = await db.Listings
+            .Where(l => l.Id == listingId && l.Status == ListingStatus.Open && l.SlotsFilled >= l.SlotsNeeded)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(l => l.Status, ListingStatus.Filled)
+                .SetProperty(l => l.NextWaveAtUtc, (DateTime?)null), ct);
+        if (filled > 0)
+        {
+            Record(db, MetricKind.FilledViaLobby, listing.GuildId, listingId, now, value: (int)(now - listing.CreatedAtUtc).TotalSeconds);
+            await db.SaveChangesAsync(ct);
+        }
+
         return new HostActionOutcome(HostActionResult.Done);
     }
 
@@ -744,6 +771,51 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         return ids.Count;
     }
 
+    /// <summary>
+    /// The operator closed this account: give back the seats it holds (the hosts get a new player), close the
+    /// listings it hosts so nobody is notified about them any more, and forget its notification devices.
+    /// </summary>
+    public async Task<(IReadOnlyList<int> LeftListingIds, IReadOnlyList<int> ClosedListingIds)> RemoveBannedUserAsync(
+        ulong userId, CancellationToken ct = default)
+    {
+        List<int> held;
+        List<int> hosted;
+        await using (var db = await dbFactory.CreateDbContextAsync(ct))
+        {
+            held = await db.ListingSlots
+                .Where(s => s.UserId == userId && !s.Released)
+                .Select(s => s.ListingId)
+                .ToListAsync(ct);
+            hosted = await db.Listings
+                .Where(l => l.HostUserId == userId && (l.Status == ListingStatus.Open || l.Status == ListingStatus.Filled))
+                .Select(l => l.Id)
+                .ToListAsync(ct);
+            await db.PushSubscriptions.Where(p => p.UserId == userId).ExecuteDeleteAsync(ct);
+            await db.Availabilities.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
+            await db.AlertSubscriptions.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
+        }
+
+        var left = new List<int>();
+        foreach (var listingId in held.Except(hosted))
+        {
+            if (await LeaveAsync(listingId, userId, SeatReleaseReason.Banned, ct) == LeaveResult.Left)
+            {
+                left.Add(listingId);
+            }
+        }
+
+        var closed = new List<int>();
+        foreach (var listingId in hosted)
+        {
+            if ((await CancelAsync(listingId, userId, ct)).Result == HostActionResult.Done)
+            {
+                closed.Add(listingId);
+            }
+        }
+
+        return (left, closed);
+    }
+
     /// <summary>Deletes everything stored about a user. Seats they hold are given back first.</summary>
     public async Task<DeleteUserDataResult> DeleteUserDataAsync(ulong userId, CancellationToken ct = default)
     {
@@ -788,8 +860,10 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         await context.AlertSubscriptions.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
         await context.PushSubscriptions.Where(p => p.UserId == userId).ExecuteDeleteAsync(ct);
         await context.Players.Where(p => p.UserId == userId).ExecuteDeleteAsync(ct);
+        // Reports other people filed about this user or their listings stay for the operator to review
+        // (abuse evidence, otherwise deleting the account would erase it); reports they filed themselves go.
         await context.ListingReports
-            .Where(r => r.ReporterUserId == userId || r.ReportedUserId == userId || hostedIds.Contains(r.ListingId))
+            .Where(r => r.ReporterUserId == userId)
             .ExecuteDeleteAsync(ct);
         await tx.CommitAsync(ct);
 

@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
@@ -47,7 +49,9 @@ builder.Services.AddSingleton<AccountService>();
 builder.Services.AddSingleton<AnnouncementStore>();
 builder.Services.AddSingleton<StatsService>();
 builder.Services.AddSingleton<WaveDispatcher>();
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ActionLimiter>();
+builder.Services.AddSingleton<PreBot.Web.Auth.LoginFailures>();
 builder.Services.AddSingleton<ModerationService>();
 
 // ---------- Live updates & notifications ----------
@@ -101,6 +105,28 @@ var auth = builder.Services.AddAuthentication(CookieAuthenticationDefaults.Authe
         o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         o.ExpireTimeSpan = TimeSpan.FromDays(30);
         o.SlidingExpiration = true;
+        // A 30-day cookie must not outlive a ban or a deleted account: check the account (cached for a minute).
+        o.Events.OnValidatePrincipal = async context =>
+        {
+            if (context.Principal?.GetUserId() is not { } userId)
+            {
+                return;
+            }
+
+            var services = context.HttpContext.RequestServices;
+            var ok = await services.GetRequiredService<IMemoryCache>()
+                .GetOrCreateAsync(("account-ok", userId), async entry =>
+                {
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1);
+                    var account = await services.GetRequiredService<AccountService>().FindAsync(userId);
+                    return account is { BannedAtUtc: null };
+                });
+            if (!ok)
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+        };
     })
     // Short-lived holding cookie between "Google/Discord said OK" and "PreBot account signed in".
     .AddCookie(ExternalLogin.Scheme, o =>
@@ -226,11 +252,17 @@ app.MapHealthChecks("/health/ready", new() { Predicate = c => c.Tags.Contains("r
 app.MapAuthEndpoints();
 
 // "1 saat sustur" button on a notification: the service worker posts the personal token from the payload.
-app.MapPost("/api/sustur", async (string t, JoinTokens tokens, PreService pre, TimeProvider time) =>
+app.MapPost("/api/sustur", async (string t, JoinTokens tokens, PreService pre, AccountService accounts, TimeProvider time) =>
 {
     if (tokens.MuteUser(t) is not { } userId)
     {
         return Results.BadRequest();
+    }
+
+    // An old notification of a deleted account: nothing to mute, and nothing must be created again.
+    if (await accounts.FindAsync(userId) is null)
+    {
+        return Results.NoContent();
     }
 
     await pre.MuteAsync(userId, time.GetUtcNow().UtcDateTime.AddHours(1));

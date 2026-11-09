@@ -68,6 +68,9 @@ public enum SeatReleaseReason
 
     /// <summary>The player deleted their data.</summary>
     AccountDeleted,
+
+    /// <summary>The operator closed the player's account.</summary>
+    Banned,
 }
 
 public enum ListingStatus

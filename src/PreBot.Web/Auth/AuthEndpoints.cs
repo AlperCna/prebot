@@ -16,11 +16,24 @@ public static class AuthEndpoints
     /// <summary>True when Site:InviteCode is set: the login page then offers "name + invite code".</summary>
     public static bool InviteEnabled(IConfiguration config) => !string.IsNullOrWhiteSpace(config["Site:InviteCode"]);
 
+    /// <summary>
+    /// The request was made on this computer, not through a tunnel or proxy: the client is loopback (a tunnel's
+    /// X-Forwarded-For has already replaced it with the real visitor's IP) and the address typed is localhost.
+    /// </summary>
+    public static bool IsLocalRequest(HttpContext http)
+    {
+        var ip = http.Connection.RemoteIpAddress;
+        var host = http.Request.Host.Host;
+        return (ip is null || System.Net.IPAddress.IsLoopback(ip))
+            && host is "localhost" or "127.0.0.1" or "[::1]" or "::1";
+    }
+
     /// <summary>Sign-in/out endpoints. They run as plain HTTP requests, outside Blazor circuits, so cookies can be set.</summary>
     public static void MapAuthEndpoints(this WebApplication app)
     {
         // Local testing only: sign in as any name, so two browsers can play two different players.
-        // Never mapped outside Development, because it lets anyone become anyone.
+        // Never mapped outside Development, because it lets anyone become anyone; and even there it only answers
+        // requests made on this computer, in case a tunnel is pointed at the development port by mistake.
         if (app.Environment.IsDevelopment())
         {
             app.MapPost("/auth/dev-login", async (
@@ -29,6 +42,11 @@ public static class AuthEndpoints
                 [FromForm] string name,
                 [FromForm] string? returnUrl) =>
             {
+                if (!IsLocalRequest(http))
+                {
+                    return Results.NotFound();
+                }
+
                 var displayName = AccountService.CleanName(name);
                 if (displayName.Length < 2)
                 {
@@ -46,16 +64,19 @@ public static class AuthEndpoints
             });
         }
 
-        // Closed test: sign in with a display name and the shared invite code (Site:InviteCode). Meant for a
-        // small group of friends — whoever knows the code can pick any name, so it is off unless configured.
+        // Closed test: sign in with the shared invite code (Site:InviteCode), a display name and a password.
+        // The code only lets new people in; the first one to use a name sets its password, so knowing the code
+        // is not enough to sign in as someone else. Failed attempts are counted per IP and per name.
         if (InviteEnabled(app.Configuration))
         {
             app.MapPost("/auth/invite-login", async (
                 HttpContext http,
                 AccountService accounts,
                 IConfiguration config,
+                LoginFailures failures,
                 [FromForm] string name,
                 [FromForm] string code,
+                [FromForm] string? sifre,
                 [FromForm] string? kabul,
                 [FromForm] string? returnUrl) =>
             {
@@ -65,20 +86,40 @@ public static class AuthEndpoints
                     return Results.Redirect($"/giris?hata=kabul&returnUrl={back}");
                 }
 
-                var expected = System.Text.Encoding.UTF8.GetBytes(config["Site:InviteCode"]!.Trim());
-                var given = System.Text.Encoding.UTF8.GetBytes((code ?? "").Trim());
-                if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expected, given))
-                {
-                    return Results.Redirect($"/giris?hata=kod&returnUrl={back}");
-                }
-
                 var displayName = AccountService.CleanName(name);
                 if (displayName.Length < 2)
                 {
                     return Results.Redirect($"/giris?hata=isim&returnUrl={back}");
                 }
 
-                var account = await accounts.GetOrCreateAsync(InviteProvider, displayName.ToLowerInvariant(), displayName);
+                var key = displayName.ToLowerInvariant();
+                var ip = http.Connection.RemoteIpAddress?.ToString();
+                if (failures.IsBlocked(ip, key))
+                {
+                    return Results.Redirect($"/giris?hata=cok&returnUrl={back}");
+                }
+
+                var expected = System.Text.Encoding.UTF8.GetBytes(config["Site:InviteCode"]!.Trim());
+                var given = System.Text.Encoding.UTF8.GetBytes((code ?? "").Trim());
+                if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expected, given))
+                {
+                    failures.Record("code", ip, null);
+                    return Results.Redirect($"/giris?hata=kod&returnUrl={back}");
+                }
+
+                var secret = sifre ?? "";
+                if (secret.Length < AccountSecret.MinLength || secret.Length > AccountSecret.MaxLength)
+                {
+                    return Results.Redirect($"/giris?hata=sifrekisa&returnUrl={back}");
+                }
+
+                var (result, account) = await accounts.SignInWithSecretAsync(InviteProvider, key, displayName, secret);
+                if (result == SecretSignIn.WrongSecret || account is null)
+                {
+                    failures.Record("password", ip, key);
+                    return Results.Redirect($"/giris?hata=sifre&returnUrl={back}");
+                }
+
                 if (account.BannedAtUtc is not null)
                 {
                     return Results.Redirect("/giris?hata=engel");

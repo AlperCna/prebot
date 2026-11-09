@@ -149,4 +149,19 @@ public sealed class FeedTests : IDisposable
         Assert.Equal((Role.Adc, Rank.Silver, Rank.Platinum, 2, "akşam oyunu"),
             (again.Role, again.MinRank, again.MaxRank, again.SlotsNeeded, again.Note));
     }
+
+    [Fact]
+    public async Task Reopening_keeps_the_lobby_already_open_in_the_client()
+    {
+        var accounts = _factory.Services.GetRequiredService<AccountService>();
+        var host = (await accounts.GetOrCreateAsync("dev", "host4", "Host")).UserId;
+        var actions = _factory.Services.GetRequiredService<PoolActions>();
+        var first = (await actions.CreateListingAsync(host, Role.Top, Rank.Iron, Rank.Diamond, 1, null, withLobby: true, lobbyLocked: true)).Listing!;
+        Assert.NotNull(first.LobbyPassword);
+        Assert.DoesNotContain(first.LobbyPassword!, Lobby.Name(first.Role, first.LobbyCode!));
+
+        await actions.CancelAsync(first.Id, host);
+        var again = (await actions.ReopenAsync(first.Id, host)).Listing!;
+        Assert.Equal((first.LobbyCode, first.LobbyPassword), (again.LobbyCode, again.LobbyPassword));
+    }
 }

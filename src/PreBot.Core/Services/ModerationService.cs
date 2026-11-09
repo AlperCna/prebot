@@ -15,7 +15,11 @@ public sealed class ModerationService(IDbContextFactory<PreBotDbContext> dbFacto
 {
     private DateTime Now => time.GetUtcNow().UtcDateTime;
 
-    public async Task ReportAsync(int listingId, ulong reporterUserId, ulong? reportedUserId, ReportReason reason, string? note, CancellationToken ct = default)
+    /// <summary>
+    /// Files a report. Refused (false) if the listing does not exist, the reporter is banned, or the reported
+    /// player is neither the host nor someone who held a seat in that listing.
+    /// </summary>
+    public async Task<bool> ReportAsync(int listingId, ulong reporterUserId, ulong? reportedUserId, ReportReason reason, string? note, CancellationToken ct = default)
     {
         note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
         if (note is { Length: > 300 })
@@ -24,6 +28,18 @@ public sealed class ModerationService(IDbContextFactory<PreBotDbContext> dbFacto
         }
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var host = await db.Listings.Where(l => l.Id == listingId).Select(l => (ulong?)l.HostUserId).SingleOrDefaultAsync(ct);
+        if (host is null || await IsBannedAsync(reporterUserId, ct))
+        {
+            return false;
+        }
+
+        if (reportedUserId is { } target && target != host
+            && !await db.ListingSlots.AnyAsync(s => s.ListingId == listingId && s.UserId == target, ct))
+        {
+            return false;
+        }
+
         db.ListingReports.Add(new ListingReport
         {
             ListingId = listingId,
@@ -34,6 +50,7 @@ public sealed class ModerationService(IDbContextFactory<PreBotDbContext> dbFacto
             CreatedAtUtc = Now,
         });
         await db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<IReadOnlyList<ReportView>> GetOpenReportsAsync(CancellationToken ct = default)

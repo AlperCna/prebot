@@ -71,6 +71,6 @@ public sealed class DiscordListingFeed(
         return new FeedListing(
             l.Id, l.Role, l.MinRank, l.MaxRank, l.SlotsNeeded - l.SlotsFilled, l.Note,
             names.GetValueOrDefault(l.HostUserId, "Bir oyuncu"), l.ExpiresAtUtc, $"{baseUrl}/ilan/{l.Id}", l.Status,
-            l.LobbyCode is { } code ? Lobby.Hint(l.Role, code, l.LobbyLocked) : null);
+            l.LobbyCode is { } code ? Lobby.PublicHint(l.Role, code, l.LobbyLocked) : null);
     }
 }

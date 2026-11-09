@@ -28,7 +28,7 @@ Start-Process powershell -WindowStyle Minimized -ArgumentList @(
 $healthy = $false
 for ($i = 0; $i -lt 180; $i++) {
     try {
-        if ((Invoke-WebRequest -Uri "http://localhost:5215/health" -UseBasicParsing -TimeoutSec 2).Content -eq "Healthy") { $healthy = $true; break }
+        if ((Invoke-WebRequest -Uri "http://localhost:5290/health" -UseBasicParsing -TimeoutSec 2).Content -eq "Healthy") { $healthy = $true; break }
     } catch { }
     Start-Sleep -Seconds 1
 }
@@ -40,8 +40,9 @@ if ($Tunel -eq "tailscale") {
     if (-not (Test-Path $ts)) { Write-Host "Tailscale kurulu degil: https://tailscale.com/download/windows" -ForegroundColor Red; exit 1 }
 
     # --bg: the funnel stays configured across restarts; only the site has to be started again.
-    & $ts funnel --bg 5215
-    $url = (& $ts funnel status | Select-String -Pattern "https://[a-z0-9.-]+\.ts\.net" | Select-Object -First 1).Matches[0].Value
+    & $ts funnel --bg 5290
+    $match = & $ts funnel status | Select-String -Pattern "https://[a-z0-9.-]+\.ts\.net" | Select-Object -First 1
+    $url = if ($match) { $match.Matches[0].Value } else { $null }
     if (-not $url) { Write-Host "Funnel adresi alinamadi. 'tailscale funnel status' ciktisina bak." -ForegroundColor Red; exit 1 }
 } else {
 # The tunnel script downloads cloudflared on first use; run it once in the foreground if it is missing.
@@ -54,7 +55,7 @@ if (-not (Test-Path $exe)) {
 Write-Host "Tunel aciliyor..." -ForegroundColor Cyan
 $tunnelLog = Join-Path $data "tunel.log"
 Remove-Item $tunnelLog -ErrorAction SilentlyContinue
-Start-Process $exe -WindowStyle Minimized -ArgumentList @("tunnel", "--no-autoupdate", "--url", "http://localhost:5215", "--logfile", $tunnelLog)
+Start-Process $exe -WindowStyle Minimized -ArgumentList @("tunnel", "--no-autoupdate", "--url", "http://localhost:5290", "--logfile", $tunnelLog)
 
 $url = $null
 for ($i = 0; $i -lt 60 -and -not $url; $i++) {
@@ -73,7 +74,8 @@ PreBot denemesi: Flex'te 4 kisi kalinca 5. kisiyi bulmak icin yaptigim site.
 
 1) Telefondan ac: $url
    (iPhone'da Safari -> Paylas -> Ana Ekrana Ekle, sonra ana ekrandan ac; yoksa bildirim gelmez)
-2) Davet kodu: $code  - adini yaz, kutucugu isaretle, gir
+2) Davet kodu: $code  - adini ve kendine bir sifre yaz, kutucugu isaretle, gir
+   (sifreyi ilk giriste sen belirlersin; baska yerde kullandigin sifre olmasin)
 3) Riot ID'ni kaydet ve "Bildirimleri ac"a bas
 4) Aksam oynayabileceksen "Su an musaitim" de ya da "Bana haber ver"i kur
 

@@ -130,6 +130,9 @@ namespace PreBot.Core.Data.Migrations
                     b.Property<bool>("LobbyLocked")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("LobbyPassword")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("MaxRank")
                         .HasColumnType("INTEGER");
 
@@ -369,6 +372,10 @@ namespace PreBot.Core.Data.Migrations
 
                     b.Property<string>("ProviderKey")
                         .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SecretHash")
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 

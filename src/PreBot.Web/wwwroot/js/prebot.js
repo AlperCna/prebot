@@ -196,6 +196,14 @@ window.addEventListener('beforeinstallprompt', (event) => {
     window.prebot._installPrompt = event;
     document.querySelectorAll('[data-install]').forEach((b) => { b.hidden = false; });
 });
+// Blazor's enhanced navigation re-renders the layout, which hides the button again: show it once more.
+window.addEventListener('load', () => {
+    window.Blazor?.addEventListener?.('enhancedload', () => {
+        if (window.prebot._installPrompt) {
+            document.querySelectorAll('[data-install]').forEach((b) => { b.hidden = false; });
+        }
+    });
+});
 window.addEventListener('appinstalled', () => {
     window.prebot._installPrompt = null;
     document.querySelectorAll('[data-install]').forEach((b) => { b.hidden = true; });

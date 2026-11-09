@@ -100,6 +100,7 @@
     /// <summary>Site:AdminUserIds: comma-separated account numbers of the people who run this site.</summary>
     private bool IsAdmin => (Config["Site:AdminUserIds"] ?? "")
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(id => id.TrimStart('#'))
         .Contains(UserId.ToString());
 
     protected override async Task LoadAsync()
@@ -137,7 +138,7 @@
 
     private async Task BanAsync(ulong userId, int? reportId)
     {
-        await Moderation.BanAsync(userId);
+        await Actions.BanAsync(userId);
         if (reportId is { } id)
         {
             await Moderation.ResolveReportAsync(id);

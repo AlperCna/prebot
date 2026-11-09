@@ -103,7 +103,8 @@
     private Rank _max = Rank.Diamond;
     private int _slots = 1;
     private string? _note;
-    private string _lobby = "acik";
+    // Starts with the host's choice from their last listing; "no lobby" for a first listing.
+    private string _lobby = "yok";
     private string? _riotId;
     private bool _busy;
     private string? _message;
@@ -113,6 +114,10 @@
     protected override async Task LoadAsync()
     {
         _riotId = await Pre.GetRiotIdAsync(UserId);
+        if (await Pre.GetLastHostedAsync(PreBot.Core.Domain.Communities.Web, UserId) is { } last)
+        {
+            _lobby = last.LobbyCode is null ? "yok" : last.LobbyLocked ? "sifreli" : "acik";
+        }
         _pushDevices = await Subscriptions.CountPushDevicesAsync(UserId);
     }
 

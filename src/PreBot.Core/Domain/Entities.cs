@@ -62,8 +62,11 @@ public sealed class Listing
     /// <summary>Code of the custom game lobby the host also opens in the client (null = no lobby). See <see cref="Lobby"/>.</summary>
     public string? LobbyCode { get; set; }
 
-    /// <summary>The lobby has a password (the code), so only players PreBot told about it can enter.</summary>
+    /// <summary>The lobby has a password, so only players PreBot told about it can enter.</summary>
     public bool LobbyLocked { get; set; }
+
+    /// <summary>The locked lobby's password; only sent in personal notifications and shown to the host.</summary>
+    public string? LobbyPassword { get; set; }
 
     /// <summary>How many notification waves have been sent (keeps counting after Matcher.MaxWaves).</summary>
     public int WavesSent { get; set; }
@@ -126,6 +129,9 @@ public sealed class UserAccount
 
     /// <summary>Set by the operator: the account can no longer sign in or be notified.</summary>
     public DateTime? BannedAtUtc { get; set; }
+
+    /// <summary>Invite-code accounts only: the password hash (<see cref="Services.AccountSecret"/>).</summary>
+    public string? SecretHash { get; set; }
 
     public ulong UserId => (ulong)Id;
 }

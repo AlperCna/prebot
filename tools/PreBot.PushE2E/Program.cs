@@ -104,6 +104,7 @@ try
             await tab.EvalAsync(
                 "(() => { const f = document.querySelector('form[action=\"/auth/invite-login\"]'); " +
                 $"f.querySelector('input[name=name]').value = '{name}'; f.querySelector('input[name=code]').value = '{inviteCode}'; " +
+                "f.querySelector('input[name=sifre]').value = 'e2e-test-sifresi'; " +
                 "f.querySelector('input[name=kabul]').checked = true; f.submit(); return true; })()");
         }
         await tab.WaitForAsync($"location.pathname === '{returnUrl}'", TimeSpan.FromSeconds(15));

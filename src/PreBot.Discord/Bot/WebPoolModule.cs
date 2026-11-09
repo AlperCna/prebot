@@ -146,7 +146,7 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
             : $"Havuzda **{result.PotentialMatches}** uygun kişi var, en uygunlardan başlayarak haber veriyorum (sitede push, Discord'da DM).";
         var lobbyText = result.Listing.LobbyCode is { } code
             ? $"\n🎮 Şimdi oyunda **Oyna → Özel Oyun → Oluştur** ile lobiyi aç: adı **{Lobby.Name(result.Listing.Role, code)}**" +
-              (result.Listing.LobbyLocked ? $", şifresi **{code}**." : ".") +
+              (result.Listing.LobbyPassword is { } password ? $", şifresi **{password}**." : ".") +
               " Lobiden biri gelirse ilan sayfasında **Lobiden biri geldi**'ye bas."
             : string.Empty;
         await FollowupAsync(
@@ -179,7 +179,8 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
     public async Task DeleteMyDataAsync()
     {
         await DeferAsync(ephemeral: true);
-        await pool.DeleteAccountAsync(await MeAsync());
+        // No ban check here: closed accounts may delete their data too (a nameless stub keeps the ban).
+        await pool.DeleteAccountAsync(await pool.AccountForDiscordUserAsync(Context.User.Id, Context.User.Username));
         await FollowupAsync("🗑️ Tüm verilerin ve PreBot hesabın silindi.", ephemeral: true);
     }
 

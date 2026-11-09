@@ -123,9 +123,26 @@ public sealed class StatsTests : IDisposable
         Assert.Equal(ListingStatus.Filled, listing.Status);
         Assert.Null(listing.NextWaveAtUtc);
         Assert.Equal(("4821", true), (listing.LobbyCode, listing.LobbyLocked));
+        Assert.Matches("^[a-z2-9]{6}$", listing.LobbyPassword); // not the code that is in the public name
         var s = await _stats.GetAsync(Web, TimeSpan.FromDays(1));
         Assert.Equal(1, s.ListingsFilled);
         Assert.Equal(4, s.MedianMinutesToFill!.Value, 3);
+    }
+
+    [Fact]
+    public async Task A_lobby_join_takes_one_seat_and_only_the_last_one_closes_the_listing()
+    {
+        var id = (await _t.Service.CreateListingAsync(Web, Web, 1, Role.Support, Rank.Iron, Rank.Diamond, 2, null, lobbyCode: "4821")).Listing!.Id;
+
+        Assert.Equal(HostActionResult.Done, (await _t.Service.MarkFilledViaLobbyAsync(id, 1)).Result);
+        var half = (await _t.Service.GetListingViewAsync(id))!.Listing;
+        Assert.Equal((ListingStatus.Open, 1), (half.Status, half.SlotsFilled)); // still looking for one more
+        Assert.Equal(0, (await _stats.GetAsync(Web, TimeSpan.FromDays(1))).ListingsFilled);
+
+        Assert.Equal(HostActionResult.Done, (await _t.Service.MarkFilledViaLobbyAsync(id, 1)).Result);
+        var full = (await _t.Service.GetListingViewAsync(id))!.Listing;
+        Assert.Equal((ListingStatus.Filled, 2), (full.Status, full.SlotsFilled));
+        Assert.Equal(1, (await _stats.GetAsync(Web, TimeSpan.FromDays(1))).ListingsFilled);
     }
 
     [Fact]
@@ -133,8 +150,10 @@ public sealed class StatsTests : IDisposable
     {
         Assert.Equal("PREBOT DESTEK 4821", Lobby.Name(Role.Support, "4821"));
         Assert.Equal("PREBOT ORMAN 1000", Lobby.Name(Role.Jungle, "1000"));
-        Assert.EndsWith("PREBOT ORTA 1234 (şifre 1234)", Lobby.Hint(Role.Mid, "1234", locked: true));
-        Assert.EndsWith("PREBOT ORTA 1234", Lobby.Hint(Role.Mid, "1234", locked: false));
+        Assert.EndsWith("PREBOT ORTA 1234 (şifre k7m2qx)", Lobby.Hint(Role.Mid, "1234", "k7m2qx"));
+        Assert.EndsWith("PREBOT ORTA 1234", Lobby.Hint(Role.Mid, "1234", null));
+        Assert.DoesNotContain("k7m2qx", Lobby.PublicHint(Role.Mid, "1234", locked: true));
+        Assert.Contains("şifreli", Lobby.PublicHint(Role.Mid, "1234", locked: true));
         Assert.InRange(int.Parse(Lobby.NewCode()), 1000, 9999);
     }
 

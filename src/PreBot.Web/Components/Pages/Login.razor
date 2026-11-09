@@ -17,6 +17,9 @@
                 "iptal" => "Giriş iptal edildi ya da tamamlanamadı. Tekrar dene.",
                 "kabul" => "Devam etmek için kutucuğu işaretlemelisin.",
                 "kod" => "Davet kodu yanlış.",
+                "sifre" => "Bu isim başka birine ait ya da şifre yanlış.",
+                "sifrekisa" => $"Şifre en az {PreBot.Core.Services.AccountSecret.MinLength} karakter olmalı.",
+                "cok" => "Çok fazla hatalı deneme. Biraz bekleyip tekrar dene.",
                 "engel" => "Bu hesap kapatıldı. Bir yanlışlık olduğunu düşünüyorsan İletişim sayfasındaki adrese yaz.",
                 _ => "Giriş tamamlanamadı. Tekrar dene.",
             })
@@ -28,11 +31,17 @@
         <form method="post" action="/auth/invite-login" data-enhance="false">
             <AntiforgeryToken />
             <input type="hidden" name="returnUrl" value="@(ReturnUrl ?? "/havuz")" />
-            <p class="text-dim small"><strong>Davetli deneme.</strong> Sana verilen kodu ve oyundaki gibi tanınacağın bir isim yaz.</p>
-            <label class="form-label" for="invite-name">Görünen isim</label>
-            <input id="invite-name" name="name" class="form-control mb-2" maxlength="32" placeholder="ör. Alper" required />
+            <p class="text-dim small"><strong>Davetli deneme.</strong> Sana verilen kodu, tanınacağın bir isim ve bir şifre yaz.</p>
             <label class="form-label" for="invite-code">Davet kodu</label>
-            <input id="invite-code" name="code" class="form-control mb-2" maxlength="32" autocomplete="off" required />
+            <input id="invite-code" name="code" class="form-control mb-2" maxlength="64" autocomplete="off" required />
+            <label class="form-label" for="invite-name">Görünen isim</label>
+            <input id="invite-name" name="name" class="form-control mb-2" maxlength="32" placeholder="ör. Alper" autocomplete="username" required />
+            <label class="form-label" for="invite-secret">Şifre</label>
+            <input id="invite-secret" name="sifre" type="password" class="form-control mb-1" minlength="6" maxlength="64" autocomplete="current-password" required />
+            <div class="text-dim small mb-2">
+                Bu isimle ilk kez giriyorsan şifreyi şimdi belirlersin; sonra bu isimle yalnızca bu şifreyle girilir.
+                Başka bir yerde kullandığın şifreyi seçme.
+            </div>
             <label class="form-check small mb-3">
                 <input class="form-check-input" type="checkbox" name="kabul" value="1" required />
                 <span class="form-check-label">

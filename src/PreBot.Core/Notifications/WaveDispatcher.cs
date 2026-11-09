@@ -51,7 +51,7 @@ public sealed class WaveDispatcher(PreService pre, IEnumerable<INotificationChan
         var alert = new WaveAlert(
             l.Id, wave.Wave, l.GuildId, l.HostUserId, l.Role, l.MinRank, l.MaxRank,
             l.SlotsNeeded - l.SlotsFilled, wave.UserIds,
-            l.LobbyCode is { } code ? Lobby.Hint(l.Role, code, l.LobbyLocked) : null);
+            l.LobbyCode is { } code ? Lobby.Hint(l.Role, code, l.LobbyPassword) : null);
 
         foreach (var channel in channels)
         {

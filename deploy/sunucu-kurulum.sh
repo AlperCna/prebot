@@ -10,7 +10,7 @@ set -eu
 echo "== Docker =="
 if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sudo sh
-  sudo usermod -aG docker "$USER"
+  sudo usermod -aG docker "${USER:-$(id -un)}"
 fi
 
 echo "== Takas alani (1 GB RAM'li sunucularda bellek tasmasin diye) =="
@@ -25,9 +25,11 @@ fi
 
 echo "== Guvenlik duvari: 80 ve 443 (bazi imajlar varsayilan olarak kapatir) =="
 if sudo iptables -L INPUT -n 2>/dev/null | grep -q "REJECT"; then
-  sudo iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
-  sudo iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
-  sudo iptables -I INPUT 1 -p udp --dport 443 -j ACCEPT
+  # -C checks first, so running the script again does not add the same rule twice.
+  for rule in "-p tcp --dport 80" "-p tcp --dport 443" "-p udp --dport 443"; do
+    # shellcheck disable=SC2086
+    sudo iptables -C INPUT $rule -j ACCEPT 2>/dev/null || sudo iptables -I INPUT 1 $rule -j ACCEPT
+  done
   if command -v netfilter-persistent >/dev/null 2>&1; then sudo netfilter-persistent save; fi
 fi
 
@@ -38,15 +40,27 @@ fi
 cd prebot
 git pull --ff-only
 
+# Writes KEY=value into .env. The value is escaped for sed, so names like "Alper & Co" stay as typed.
+set_env() {
+  value=$(printf '%s' "$2" | sed 's/[\\&|]/\\&/g')
+  sed -i "s|^$1=.*|$1=$value|" .env
+}
+
 if [ ! -f .env ]; then
   printf "Sitenin adresi (ornek: prebot-alper.westeurope.cloudapp.azure.com): "; read -r DOMAIN
   printf "Iletisim e-postasi (gizlilik metninde gorunur): "; read -r EMAIL
   printf "Isletmeci adi (gizlilik metninde 'veri sorumlusu' olarak gorunur): "; read -r OPERATOR
   printf "Sunucunun yeri (ornek: Avrupa (Azure, Hollanda)): "; read -r LOCATION
-  printf "Davet kodu (bos birakirsan uretilir): "; read -r CODE
-  [ -n "$CODE" ] || CODE="flex-$(shuf -i 1000-9999 -n 1)"
+  printf "Davet kodu (bos birakirsan tahmin edilemez bir kod uretilir): "; read -r CODE
+  # 12 random letters/digits: the invite code must not be guessable (the login also counts failed tries).
+  [ -n "$CODE" ] || CODE="flex-$(tr -dc 'abcdefghjkmnpqrstuvwxyz23456789' </dev/urandom | head -c 12)"
   cp deploy/.env.example .env
-  sed -i "s|^DOMAIN=.*|DOMAIN=$DOMAIN|; s|^PUSH_SUBJECT=.*|PUSH_SUBJECT=mailto:$EMAIL|; s|^SITE_CONTACT_EMAIL=.*|SITE_CONTACT_EMAIL=$EMAIL|; s|^SITE_OPERATOR_NAME=.*|SITE_OPERATOR_NAME=$OPERATOR|; s|^SITE_HOSTING_LOCATION=.*|SITE_HOSTING_LOCATION=$LOCATION|; s|^SITE_INVITE_CODE=.*|SITE_INVITE_CODE=$CODE|" .env
+  set_env DOMAIN "$DOMAIN"
+  set_env PUSH_SUBJECT "mailto:$EMAIL"
+  set_env SITE_CONTACT_EMAIL "$EMAIL"
+  set_env SITE_OPERATOR_NAME "$OPERATOR"
+  set_env SITE_HOSTING_LOCATION "$LOCATION"
+  set_env SITE_INVITE_CODE "$CODE"
   echo "Davet kodu: $CODE  (.env dosyasinda saklandi)"
 fi
 

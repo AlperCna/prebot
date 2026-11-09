@@ -50,13 +50,14 @@ public sealed partial class InviteLoginTests : IDisposable
     [GeneratedRegex("name=\"__RequestVerificationToken\" value=\"([^\"]+)\"")]
     private static partial Regex AntiforgeryField();
 
-    private static async Task<HttpResponseMessage> LoginAsync(HttpClient client, string name, string code, bool accept = true)
+    private static async Task<HttpResponseMessage> LoginAsync(HttpClient client, string name, string code, bool accept = true, string secret = "gizli-sifre")
     {
         var page = await client.GetStringAsync("/giris");
         var form = new Dictionary<string, string>
         {
             ["name"] = name,
             ["code"] = code,
+            ["sifre"] = secret,
             ["returnUrl"] = "/havuz",
             ["__RequestVerificationToken"] = AntiforgeryField().Match(page).Groups[1].Value,
         };
@@ -84,6 +85,37 @@ public sealed partial class InviteLoginTests : IDisposable
     }
 
     [Fact]
+    public async Task Knowing_the_invite_code_is_not_enough_to_sign_in_as_someone_else()
+    {
+        var owner = Client("flex-2026");
+        Assert.Equal("/havuz", (await LoginAsync(owner, "Alper", "flex-2026", secret: "alperin-sifresi")).Headers.Location!.ToString());
+
+        // Another browser types the same name (any spelling) with a different password: refused.
+        var other = _factories[^1].CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        Assert.Equal("/giris?hata=sifre&returnUrl=%2Fhavuz", (await LoginAsync(other, " alper ", "flex-2026", secret: "tahmin-123")).Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await other.GetAsync("/havuz")).StatusCode);
+
+        // Too short a password is refused before anything is created.
+        Assert.Equal("/giris?hata=sifrekisa&returnUrl=%2Fhavuz", (await LoginAsync(other, "Yeni", "flex-2026", secret: "123")).Headers.Location!.ToString());
+
+        // The owner's own password still works from a new browser.
+        Assert.Equal("/havuz", (await LoginAsync(other, "ALPER", "flex-2026", secret: "alperin-sifresi")).Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Guessing_the_code_or_a_password_is_stopped_after_a_few_tries()
+    {
+        var client = Client("flex-2026");
+        for (var i = 0; i < PreBot.Web.Auth.LoginFailures.IpLimit; i++)
+        {
+            Assert.Equal("/giris?hata=kod&returnUrl=%2Fhavuz", (await LoginAsync(client, "Mert", $"flex-{i:0000}")).Headers.Location!.ToString());
+        }
+
+        // Even the right code is refused now, from this address.
+        Assert.Equal("/giris?hata=cok&returnUrl=%2Fhavuz", (await LoginAsync(client, "Mert", "flex-2026")).Headers.Location!.ToString());
+    }
+
+    [Fact]
     public async Task Banned_player_is_signed_out_and_cannot_sign_in_again()
     {
         var client = Client("flex-2026");
@@ -101,6 +133,12 @@ public sealed partial class InviteLoginTests : IDisposable
         Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/havuz")).StatusCode);
         // ...and signing in again is refused.
         Assert.Equal("/giris?hata=engel", (await LoginAsync(client, "Troll", "flex-2026")).Headers.Location!.ToString());
+
+        // Deleting the data is allowed, but it is not a way back in: the name stays closed.
+        await Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+            .GetRequiredService<PreBot.Core.Services.AccountService>(services).DeleteAccountAsync(account.UserId);
+        Assert.Equal("/giris?hata=engel", (await LoginAsync(client, "Troll", "flex-2026")).Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/havuz")).StatusCode);
     }
 
     [Fact]

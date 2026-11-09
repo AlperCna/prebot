@@ -91,15 +91,66 @@ public sealed class ModerationTests : IDisposable
     }
 
     [Fact]
-    public async Task Deleting_your_data_also_deletes_reports_about_you()
+    public async Task Deleting_your_data_keeps_reports_others_made_about_you_but_not_your_own()
     {
         var host = await AccountAsync("host");
         var reporter = await AccountAsync("reporter");
-        await _mod.ReportAsync(await OpenAsync(host), reporter, host, ReportReason.Other, null);
+        var listing = await OpenAsync(host);
+        Assert.True(await _mod.ReportAsync(listing, reporter, host, ReportReason.Other, null));
+        Assert.True(await _mod.ReportAsync(listing, host, null, ReportReason.Other, "kendi ilanim"));
 
         await _t.Service.DeleteUserDataAsync(host);
 
         await using var db = _t.NewContext();
-        Assert.Empty(await db.ListingReports.ToListAsync());
+        var left = Assert.Single(await db.ListingReports.ToListAsync());
+        Assert.Equal(reporter, left.ReporterUserId);
+    }
+
+    [Fact]
+    public async Task Being_available_is_capped_at_three_hours()
+    {
+        var entry = await _t.Service.SetAvailableAsync(Web, 5, Role.Mid, Rank.Gold, TimeSpan.FromHours(10));
+        Assert.Equal(_t.Time.GetUtcNow().UtcDateTime.AddHours(3), entry.ExpiresAtUtc);
+    }
+
+    [Fact]
+    public async Task A_report_can_only_name_the_host_or_someone_who_held_a_seat()
+    {
+        var host = await AccountAsync("host");
+        var player = await AccountAsync("player");
+        var stranger = await AccountAsync("stranger");
+        var reporter = await AccountAsync("reporter");
+        var listing = await OpenAsync(host);
+        await _t.Service.SetRiotIdAsync(player, "Player#TR1");
+        await _t.Service.TryClaimAsync(listing, player);
+
+        Assert.True(await _mod.ReportAsync(listing, reporter, host, ReportReason.Other, null));
+        Assert.True(await _mod.ReportAsync(listing, reporter, player, ReportReason.NoShow, null));
+        Assert.False(await _mod.ReportAsync(listing, reporter, stranger, ReportReason.Other, null));
+        Assert.False(await _mod.ReportAsync(listing + 100, reporter, null, ReportReason.Other, null));
+
+        await _mod.BanAsync(reporter);
+        Assert.False(await _mod.ReportAsync(listing, reporter, host, ReportReason.Other, null));
+    }
+
+    [Fact]
+    public async Task Ban_gives_back_seats_and_closes_the_banned_players_listings()
+    {
+        var host = await AccountAsync("host");
+        var banned = await AccountAsync("banned");
+        var theirs = await OpenAsync(banned);
+        var other = await OpenAsync(host);
+        await _t.Service.SetRiotIdAsync(banned, "Banned#TR1");
+        Assert.Equal(ClaimResult.ClaimedAndFilled, (await _t.Service.TryClaimAsync(other, banned)).Result);
+
+        await _mod.BanAsync(banned);
+        var (left, closed) = await _t.Service.RemoveBannedUserAsync(banned);
+
+        Assert.Equal([other], left);
+        Assert.Equal([theirs], closed);
+        var otherView = (await _t.Service.GetListingViewAsync(other))!;
+        Assert.Equal(ListingStatus.Open, otherView.Listing.Status); // the host is looking again
+        Assert.Equal(0, otherView.Listing.SlotsFilled);
+        Assert.Equal(ListingStatus.Cancelled, (await _t.Service.GetListingViewAsync(theirs))!.Listing.Status);
     }
 }

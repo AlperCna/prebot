@@ -118,18 +118,20 @@
                 <div class="small text-dim mb-2">Oyna → Özel Oyun → Oluştur. Bildirim alan ve o an oyunda olan biri lobine direkt girer.</div>
                 <div class="d-flex flex-wrap gap-2 align-items-center small">
                     Lobi adı: <button type="button" class="rank-chip riot-copy ms-0" data-copy="@lobbyName">@lobbyName <span class="copy-hint">kopyala</span></button>
-                    @if (l.LobbyLocked)
+                    @if (l.LobbyPassword is { } lobbyPassword)
                     {
-                        <span>Şifre: <button type="button" class="rank-chip riot-copy ms-0" data-copy="@lobbyCode">@lobbyCode <span class="copy-hint">kopyala</span></button></span>
+                        <span>Şifre: <button type="button" class="rank-chip riot-copy ms-0" data-copy="@lobbyPassword">@lobbyPassword <span class="copy-hint">kopyala</span></button></span>
                     }
                 </div>
-                <button class="btn btn-sm btn-outline-light mt-2" disabled="@(_busy || !Ready)" @onclick="FilledViaLobbyAsync"><Icon Name="check" /> Lobiden biri geldi, ilanı kapat</button>
+                <button class="btn btn-sm btn-outline-light mt-2" disabled="@(_busy || !Ready)" @onclick="FilledViaLobbyAsync">
+                    <Icon Name="check" /> @(missing > 1 ? "Lobiden biri geldi (1 kişi eksildi)" : "Lobiden biri geldi, ilanı kapat")
+                </button>
             </div>
         }
         else if (!insider)
         {
             <div class="lobby-box mt-3 small">
-                <Icon Name="gamepad" /> Şu an oyundaysan: <strong>Özel oyuna katıl</strong>, <strong>@lobbyName</strong>@(l.LobbyLocked ? $" (şifre {lobbyCode})" : "")
+                <Icon Name="gamepad" /> Şu an oyundaysan: <strong>Özel oyuna katıl</strong>, <strong>@lobbyName</strong>@(l.LobbyLocked ? " (şifreli; şifre sana gelen PreBot bildiriminde)" : "")
             </div>
         }
     }
@@ -364,7 +366,12 @@
         }
 
         ulong? target = ulong.TryParse(_reportTarget, out var t) ? t : null;
-        await Moderation.ReportAsync(Id, UserId, target, _reportReason, _reportNote);
+        if (!await Moderation.ReportAsync(Id, UserId, target, _reportReason, _reportNote))
+        {
+            _message = "Şikâyet gönderilemedi.";
+            return;
+        }
+
         _reportSent = true;
     }
 

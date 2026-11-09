@@ -17,7 +17,7 @@ if (-not (Test-Path $exe)) {
     Invoke-WebRequest -Uri $url -OutFile $exe -UseBasicParsing
     $signature = Get-AuthenticodeSignature $exe
     Write-Host ("Imza: " + $signature.Status + " - " + $signature.SignerCertificate.Subject) -ForegroundColor DarkGray
-    if ($signature.Status -ne "Valid") {
+    if ($signature.Status -ne "Valid" -or $signature.SignerCertificate.Subject -notlike "*Cloudflare*") {
         Remove-Item $exe
         Write-Host "Dosyanin imzasi gecerli degil, silindi." -ForegroundColor Red
         exit 1
@@ -26,4 +26,4 @@ if (-not (Test-Path $exe)) {
 
 Write-Host "Tunel aciliyor. Asagida https://....trycloudflare.com adresi gorunecek." -ForegroundColor Green
 Write-Host "Durdurmak icin Ctrl+C." -ForegroundColor DarkGray
-& $exe tunnel --no-autoupdate --url http://localhost:5215
+& $exe tunnel --no-autoupdate --url http://localhost:5290

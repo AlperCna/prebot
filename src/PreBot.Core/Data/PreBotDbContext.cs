@@ -87,6 +87,7 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
             e.Property(a => a.Provider).HasMaxLength(16);
             e.Property(a => a.ProviderKey).HasMaxLength(128);
             e.Property(a => a.DisplayName).HasMaxLength(32);
+            e.Property(a => a.SecretHash).HasMaxLength(128);
             e.Ignore(a => a.UserId);
             e.HasIndex(a => new { a.Provider, a.ProviderKey }).IsUnique();
         });
