@@ -4,6 +4,32 @@
 
 **Kısa cevap:** Yazılım tarafında sorunu çözen akışın tamamı çalışıyor ve gerçek tarayıcıda baştan sona denendi. Sorunu gerçekten çözüp çözmediği artık koda değil **kullanıcıya** bağlı. Havuzda akşamları yeterince insan olursa ilanlar dakikalar içinde doluyor. Bunu ölçmek için `/istatistik` sayfası eklendi. Sıradaki adım siteyi yayına alıp gerçek oyuncularla denemek; bu adımı senin yapman gerekiyor (aşağıda).
 
+## Güncelleme: tek havuz ve bağımsız denetim
+
+**Tek havuz (Discord + site).** Bot sitenin içinde çalışırken Discord komutları sitenin havuzunu kullanıyor. Discord kullanıcısı, sitedeki "Discord ile giriş" ile aynı hesaba düşüyor. `/pre-lazim` bir site ilanı açıyor: sitedeki oyunculara push gidiyor, push cihazı olmayan Discord kullanıcılarına DM gidiyor. Discord'daki **Katıl** butonu yeri siteye gitmeden alıyor; Riot ID yoksa küçük bir form soruyor.
+
+**Bağımsız kod denetimi** ([notlar](../arastirma/research_notes/PreBot%20karar%20teyidi/code_audit.md)) çekirdeğin sağlam olduğunu doğruladı: atomik yer alma, sunucu tarafı yetki kontrolleri, kişiye bağlı katılma bağlantıları, açık yönlendirme olmaması, proxy ayarı, yedek ve CI sorunsuz. Ama küçük bir havuzda ilanların dolmamasına yol açacak açıklar buldu. Kodla kapatılabilenlerin hepsi kapatıldı:
+
+| Bulgu | Düzeltme |
+|---|---|
+| Riot ID'si olmayan biri yeri kapıp ilanı kilitleyebiliyordu | Katılmak için Riot ID şart; sitede ilanda, Discord'da bir formla soruluyor |
+| Dalgalar 5. dakikada duruyordu, geç gelenler kaçıyordu | İlan dolana ya da süresi bitene kadar 3 dakikada bir yeni gelenlere soruyor; "Müsaitim" diyen biri bekleyen uygun ilanı hemen öğreniyor; yer boşalınca herkes tekrar sorulabiliyor |
+| Site ve bot işçileri süresi dolan ilanlarda yarışıyordu | Her işçi yalnızca kendi topluluğunu kapatıyor; "süresi doldu" bildirimi kaybolmuyor |
+| Bildirim alamayacak oyuncular dalgalarda yer kaplıyordu | Push cihazı ya da Discord DM'i olan oyuncular önce soruluyor |
+| iPhone'da izin penceresi ve paylaşım menüsü açılmayabilirdi | İkisi de artık dokunuşun içinde, tarayıcıda başlıyor |
+| İlan sahibinin bildirimleri kapalıysa kimse fark etmiyordu | İlan açarken uyarı |
+| Master+ aralığı Zümrüt'ün altına genişleyebiliyordu | Genişleme Zümrüt'te duruyor |
+| Bir oyuncu birden fazla açık ilanda yer tutabiliyordu | Tek açık yer |
+| "+1 saat" süreyi kısaltabiliyordu, uzak yedek silinebiliyordu, 90 gün silmesi yedeğe bağlıydı | Düzeltildi |
+
+**Denetimin, kodla kapatılamayan uyarıları:**
+- **Gerçek cihaz testi:** E2E testi yalnızca Windows'ta Edge ile çalıştı. Yayına alınca iPhone (Ana Ekrana eklenmiş), Android (Xiaomi/Samsung pil tasarrufu) ve Chrome kapalıyken Windows'ta bir kez elle denenmeli.
+- **Likidite:** Ürün ancak akşam saatinde bildirimi açık ve Riot ID'si kayıtlı 5–15 kişi varken işe yarar. Bu yüzden çekirdek grup ve tek bir "pre saati" şart.
+- **Moderasyon:** Yönetici/ban aracı ve gelmeme sayacı henüz yok (yol haritasında Faz 1).
+- **Bilinen sınır:** Docker'da IPv6 istemciler tek IP gibi görünebilir; giriş hız sınırını paylaşırlar. Küçük ölçekte sorun değil.
+
+**Doğrulama:** 143 otomatik test, uyarıları hata sayan Release derleme, migration kontrolü ve gerçek Edge ile 10 adımlı push E2E testi geçti.
+
 ## Güncelleme: Faz 0 (yayın öncesi güvenlik ve ölçüm) tamamlandı
 
 [Yol haritasındaki](../arastirma/reports/PreBot%20geliştirme%20yol%20haritası.md) Faz 0'ın kod tarafı bitti:

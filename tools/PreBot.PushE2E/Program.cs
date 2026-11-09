@@ -128,6 +128,18 @@ try
         Console.WriteLine($"       bildirimler: {await player.NotificationTitlesAsync()}");
     });
 
+    await Step("Oyuncu Riot ID'sini kaydeder (katılmak için gerekli)", async () =>
+    {
+        await player.NavigateAsync($"{baseUrl}/havuz");
+        // Typing only reaches the server once the page is live, so keep typing until "Kaydet" becomes enabled.
+        await player.WaitForAsync(
+            $"(() => {{ const i = document.querySelector('input[aria-label=\"Riot ID\"]'); if (i) {{ i.value = 'E2E{run}#TR1'; i.dispatchEvent(new Event('input', {{ bubbles: true }})); }} " +
+            "return [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Kaydet' && !b.disabled); })()",
+            TimeSpan.FromSeconds(20));
+        await player.ClickButtonAsync("Kaydet");
+        await player.WaitForAsync("!document.querySelector('input[aria-label=\"Riot ID\"]')", TimeSpan.FromSeconds(10));
+    });
+
     await Step("Oyuncu 'Şu an müsaitim' der (Destek, Altın)", async () =>
     {
         await player.NavigateAsync($"{baseUrl}/havuz");
