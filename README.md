@@ -89,6 +89,26 @@ dotnet user-secrets set "Discord:FeedChannels" "KANAL_ID" --project src/PreBot.W
 
 Botu token'ı silmeden kapatmak için `Discord:Enabled=false`. Botu siteden bağımsız çalıştırmak istersen `src/PreBot` projesi (ve compose'daki `discord` profili) hâlâ var.
 
+## Arkadaşlarla ücretsiz deneme (sunucu almadan)
+
+Site kendi bilgisayarında "yayın modunda" çalışır, Cloudflare'in hesapsız Quick Tunnel'ı ile internetten HTTPS adresi alır. Giriş, Google ayarı gerektirmeyen **isim + davet kodu** ile yapılır. Discord botu kapalıdır.
+
+1. Siteyi başlat (davet kodu ekranda yazar):
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\deneme-sitesi.ps1
+```
+
+2. İkinci bir pencerede tüneli aç (ilk seferde `cloudflared` Cloudflare'in resmi GitHub sayfasından indirilir ve imzası kontrol edilir):
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\deneme-tuneli.ps1
+```
+
+3. Çıktıdaki `https://....trycloudflare.com` adresini ve davet kodunu arkadaşlarına gönder.
+
+Bilgisayarın açık kalmalı. Tünel adresi her açılışta değişir; adres değişince herkes bildirimleri yeniden açmalı. Veriler `%LOCALAPPDATA%\PreBot-deneme` klasöründe, geliştirme verilerinden ayrı tutulur. Davet kodunu bilen herkes istediği isimle girebilir; bu yüzden yalnızca kapalı arkadaş denemesi içindir.
+
 ## Yayına alma (VPS + Docker + otomatik HTTPS)
 
 Gerekenler: küçük bir Linux VPS (2 vCPU / 4 GB yeterli) ve bir alan adı. Alan adında "LoL" ya da "League" geçmemeli (Riot kuralı).

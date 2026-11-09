@@ -10,6 +10,12 @@ public static class AuthEndpoints
 {
     public const string DevProvider = "dev";
 
+    /// <summary>Accounts created with the invite code (closed test with friends, no Google setup needed).</summary>
+    public const string InviteProvider = "invite";
+
+    /// <summary>True when Site:InviteCode is set: the login page then offers "name + invite code".</summary>
+    public static bool InviteEnabled(IConfiguration config) => !string.IsNullOrWhiteSpace(config["Site:InviteCode"]);
+
     /// <summary>Sign-in/out endpoints. They run as plain HTTP requests, outside Blazor circuits, so cookies can be set.</summary>
     public static void MapAuthEndpoints(this WebApplication app)
     {
@@ -33,6 +39,45 @@ public static class AuthEndpoints
                 await SignInAsync(http, account.UserId, account.DisplayName, DevProvider);
                 return Results.LocalRedirect(SafeReturnUrl(returnUrl));
             });
+        }
+
+        // Closed test: sign in with a display name and the shared invite code (Site:InviteCode). Meant for a
+        // small group of friends — whoever knows the code can pick any name, so it is off unless configured.
+        if (InviteEnabled(app.Configuration))
+        {
+            app.MapPost("/auth/invite-login", async (
+                HttpContext http,
+                AccountService accounts,
+                IConfiguration config,
+                [FromForm] string name,
+                [FromForm] string code,
+                [FromForm] string? kabul,
+                [FromForm] string? returnUrl) =>
+            {
+                var back = Uri.EscapeDataString(SafeReturnUrl(returnUrl));
+                if (kabul != "1")
+                {
+                    return Results.Redirect($"/giris?hata=kabul&returnUrl={back}");
+                }
+
+                var expected = System.Text.Encoding.UTF8.GetBytes(config["Site:InviteCode"]!.Trim());
+                var given = System.Text.Encoding.UTF8.GetBytes((code ?? "").Trim());
+                if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expected, given))
+                {
+                    return Results.Redirect($"/giris?hata=kod&returnUrl={back}");
+                }
+
+                var displayName = AccountService.CleanName(name);
+                if (displayName.Length < 2)
+                {
+                    return Results.Redirect($"/giris?hata=isim&returnUrl={back}");
+                }
+
+                var account = await accounts.GetOrCreateAsync(InviteProvider, displayName.ToLowerInvariant(), displayName);
+                await accounts.MarkTermsAcceptedAsync(account.UserId);
+                await SignInAsync(http, account.UserId, account.DisplayName, InviteProvider);
+                return Results.LocalRedirect(SafeReturnUrl(returnUrl));
+            }).RequireRateLimiting("auth");
         }
 
         // Login with Google / Discord: send the user to the provider...
