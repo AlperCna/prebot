@@ -1,301 +1,199 @@
 # PreBot: Flex için anında 5. kişi
 
-League of Legends TR sunucusunda **"4 kişiyiz, 1 kişi lazım"** sorununu çözen bir Discord botu. Ranked Flex'e 4 kişilik partiyle girilemiyor, Ranked 5s ise tam beşli istiyor. Tek bir eksik kişi bütün akşamı bozabiliyor.
+**Ranked Flex'e 4 kişiyle girilemiyor.** Riot yalnızca 1, 2, 3 ya da 5 kişilik partilere izin veriyor; dört kişi kaldığında ya 5.'yi bulacaksınız ya da dereceli oynamayacaksınız.
 
-PreBot bir ilan panosu gibi çalışmıyor, çağrı sistemi gibi çalışıyor. İlanı kanala asıp birinin görmesini beklemek yerine, **şu an müsait olan ve rolü ile rankı uyan** kişileri doğrudan etiketliyor.
+PreBot, League of Legends TR sunucusu için bu sorunu çözen ücretsiz ve açık kaynaklı bir **web uygulaması (PWA)**. İlan panosu gibi beklemez: **şu an müsait olan ve rolü uyan** oyunculara telefonlarına ve bilgisayarlarına anında bildirim gönderir, ilk "Katıl" diyen yeri alır, Riot ID'si ilan sahibine gider. Discord botu da sitenin içinde çalışır ve ilanları Discord kanallarına duyurur.
 
-> PreBot, Riot Games tarafından onaylanmamıştır.
+> PreBot isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
 
 ## Nasıl çalışır
 
 ```
-Oyuncu:  /musaitim rol:Destek rank:Altın sure:1 saat   → 1 saatlik müsaitlik havuzuna girer
-Sen:     /pre-lazim rol:Destek en-dusuk:Altın en-yuksek:Platin
-Bot:     İlanı kanala asar ve uygun kişileri dalga dalga etiketler:
-           0. dk  → en uygun 5 kişi (tam rank aralığı)
-           2. dk  → 10 kişi daha (aralık ±1 kademe)
-           5. dk  → 15 kişi daha (aralık ±2 kademe)
-Oyuncu:  [Katıl]'a basar. İlk basan yeri alır, sana Riot ID'si gönderilir
-İlan:    15 dakikada dolmazsa kendiliğinden kapanır
-Gelmedi: [Gelmedi, yeniden ara] → yer boşalır, bot yeniden arar
+Oyuncu:   "Şu an müsaitim" der (rol, rank, 30 dk – 2 saat) ya da "Bana haber ver" ile saat aralığı kurar
+Sen:      İlan açarsın: "Destek lazım" (rank aralığı varsayılan olarak geniş: Demir–Elmas)
+PreBot:   Uygun oyunculara dalga dalga push bildirimi gönderir:
+            0. dk → en uygun 5 kişi
+            2. dk → 10 kişi daha (rank aralığı ±1 kademe)
+            5. dk → 15 kişi daha (±2 kademe)
+          İlk dalga boşsa ve geniş dalgada uygun biri varsa beklemeden ona geçer.
+Oyuncu:   Bildirimdeki "Katıl"a basar → yer onundur (kişisel, 20 dakikalık bağlantı)
+Sen:      "🎉 X katıldı, Riot ID: ..." bildirimi alırsın → Riot ID'ye dokun (kopyalanır) → oyunda ekle, davet et
+İlan:     15 dakikada dolmazsa kapanır; "Aynı ilanı tekrar aç" tek tuş
+Gelmedi:  "Gelmedi, yeniden ara" → yer boşalır, yeniden aranır
 ```
 
-**Spam koruması:**
-- Aynı kişi 15 dakikada en fazla bir kez etiketlenir.
-- Sadece seçilen kişiler etiketlenir; `@everyone` ya da rol pingi atılmaz.
-- Müsaitlik süresi dolunca kişi havuzdan kendiliğinden çıkar.
+| Sayfa | Ne yapar |
+|---|---|
+| `/havuz` | "Şu an müsaitim", canlı havuz, açık ilanlar, başlarken listesi |
+| `/ilan-ac` | Eksik kişi için ilan açar |
+| `/ilan/{id}` | Katıl, Vazgeç, Gelmedi-yeniden ara, Kapat, Tekrar aç, paylaşılabilir link. Riot ID'leri yalnızca ilandakiler görür. |
+| `/bildirimler` | Bu cihazda bildirimleri aç/kapat, test bildirimi, "Bana haber ver" ayarı |
+| `/profil` | Görünen isim, Riot ID, çıkış, verilerimi sil |
+| `/istatistik` | Herkese açık, anonim: dolum oranı, tipik ve p90 dolma süresi, gelmeme oranı |
+| `/gizlilik`, `/kosullar`, `/iletisim` | KVKK aydınlatma metni, kullanım koşulları, iletişim ve şikâyet |
 
-## 🌐 Web uygulaması (yeni, asıl ürün)
+Bütün sayfalar canlı: biri katılınca diğer ekranlar yenilemeye gerek kalmadan güncellenir (Blazor Interactive Server, SignalR).
 
-Discord Türkiye'de erişime kapalı olduğu için (Ekim 2024'ten beri) asıl ürün artık bir web sitesi. Discord botu yardımcı kanal olarak kalıyor. Gerekçeler [arastirma/reports/Web uygulaması mı Discord mu.md](arastirma/reports/Web%20uygulaması%20mı%20Discord%20mu.md) raporunda.
+### Bildirimler ve spam koruması
+
+- Aynı ilan için kimseye iki kez haber gitmez. Müsait oyunculara en fazla 3 dakikada bir bildirim gider (`PreBot:PingCooldownMinutes`).
+- "Bana haber ver" diyenlere: önce müsait olanlara sorulur; onlara 2. dalgadan itibaren ya da müsait kimse uymuyorsa hemen gider. Kişi başına 30 dakikada 1, günde en fazla 5 bildirim.
+- Bildirim 120 saniyede geçersiz olur; grup dolduktan sonra gelmez.
+- Kullanıcı başına sınırlar: saatte en fazla 6 ilan, dakikada 6 katılma, 10 dakikada 3 test bildirimi. Giriş uç noktalarına IP başına sınır.
+- **iPhone:** bildirim için siteyi Safari'de **Paylaş → Ana Ekrana Ekle** ile kurmak gerekiyor (Apple kısıtı). Sayfa bunu adım adım anlatıyor.
+
+## Yerelde çalıştırma
+
+**Gerekenler:** [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
 dotnet run --project src/PreBot.Web --launch-profile http
 ```
 
-Tarayıcıda <http://localhost:5215> adresini aç. Yerelde **test girişi** var: herhangi bir isimle giriş yapabilirsin. İki oyuncuyu aynı anda denemek için bir sekmede `localhost:5215`, diğerinde `127.0.0.1:5215` aç; ikisi ayrı oturum gibi davranır.
+<http://localhost:5215> adresini aç. Yerelde **test girişi** var: herhangi bir isimle girebilirsin. İki oyuncuyu aynı anda denemek için bir sekmede `localhost:5215`, diğerinde `127.0.0.1:5215` aç.
 
-| Sayfa | Ne yapar |
-|---|---|
-| `/havuz` | "Şu an müsaitim" butonu, canlı havuz, açık ilanlar. Uygun bir ilan açılınca sayfada uyarı çıkar. |
-| `/ilan-ac` | Eksik kişi için ilan açar, uygun oyunculara dalga dalga haber verir |
-| `/ilan/{id}` | Katıl, Vazgeç, Gelmedi-yeniden ara, Kapat butonları ve paylaşılabilir link. Riot ID'leri yalnızca ilandakiler görür. |
-| `/profil` | Görünen isim, Riot ID, verilerini silme |
+Yerelde veritabanı ve anahtarlar `%LOCALAPPDATA%\PreBot` klasöründe tutulur, proje klasöründe değil (OneDrive gibi senkron klasörler SQLite'ı bozuyor, anahtarlar da buluta yüklenmemeli). Konum `DataDirectory` ayarıyla değiştirilebilir. Siteyi Discord botu kapalı denemek için: `Discord__Enabled=false`.
 
-Bütün sayfalar canlı: biri katılınca diğer ekranlar yenilemeye gerek kalmadan güncellenir (Blazor Interactive Server, SignalR).
+### Google ve Discord ile giriş
 
-### 🔔 Bildirimler (PWA + Web Push)
-
-- **`/bildirimler`**: bu cihazda bildirimleri aç/kapat ve test bildirimi gönder. Bir kişi birden fazla cihaz (telefon + PC) kaydedebilir.
-- **Bildirimin "Katıl" butonu** ilanı açar ve seni otomatik katar (`/ilan/{id}?katil=1`). Chrome, Edge ve Firefox'ta buton olarak görünür. Safari'de bildirime dokununca ilan açılır.
-- **"Bana haber ver"**: her akşam "Müsaitim" demek istemeyenler için kalıcı uyarı. Rol, rank ve Türkiye saatiyle bir zaman aralığı seçilir. Sıra ve sınırlar:
-  - Önce o an müsait olanlara haber gider. "Bana haber ver" diyenlere 2. dalgadan itibaren, ya da müsait kimse uymuyorsa hemen gider.
-  - Kişi başına 30 dakikada en fazla 1, günde en fazla 5 bildirim.
-- **Spam koruması:**
-  - Aynı ilan için kimseye iki kez haber gitmez.
-  - Müsait oyunculara en fazla 3 dakikada bir bildirim gider.
-  - Bildirim 120 saniyede geçersiz olur; grup dolduktan sonra gelmez.
-- **iPhone:** bildirim almak için siteyi önce Safari'de **Paylaş → Ana Ekrana Ekle** ile kurmak gerekiyor (Apple kısıtı). Sayfa bunu adım adım anlatıyor.
-- **Anahtarlar:** yerelde VAPID anahtarları otomatik üretilip `%LOCALAPPDATA%\PreBot` klasöründe tutulur. Üretimde `Push:PublicKey`, `Push:PrivateKey` ve `Push:Subject` ayarlanmalı.
-
-**Veriler nerede?** Yerelde veritabanı ve anahtarlar `%LOCALAPPDATA%\PreBot` klasöründe tutulur, proje klasöründe değil. Sebebi:
-- OneDrive gibi senkronize klasörler SQLite'ın kilit dosyalarını bozuyor.
-- Özel anahtarın buluta yüklenmemesi gerekiyor.
-
-Bu konum `DataDirectory` ayarıyla değiştirilebilir.
-
-### 🔑 Google ve Discord ile giriş
-
-Bir sağlayıcı ancak anahtarları ayarlanınca giriş sayfasında görünür. Ayarlanmamışsa yerelde yalnızca test girişi çalışır. Sağlayıcılardan sadece hesap kimliği ve görünen ad alınır, **e-posta adresi istenmez** (KVKK).
+Bir sağlayıcı ancak anahtarları ayarlanınca giriş sayfasında görünür. Sağlayıcılardan yalnızca hesap kimliği ve görünen ad alınır, **e-posta istenmez**. Giriş, "Aydınlatma metnini okudum, Kullanım Koşulları'nı kabul ediyorum ve 16 yaşından büyüğüm" kutucuğu işaretlenmeden başlamaz.
 
 **Google (yaklaşık 10 dakika):**
-1. <https://console.cloud.google.com> adresinde yeni bir proje oluştur (ör. "PreBot").
-2. **APIs & Services → OAuth consent screen** bölümünde:
-   - User type olarak **External** seç.
-   - Uygulama adına "PreBot" yaz, destek e-postası olarak kendi adresini gir.
-   - Scope eklemene gerek yok.
-3. **Credentials → Create credentials → OAuth client ID** bölümünde:
-   - Application type olarak **Web application** seç.
-   - **Authorized redirect URIs** alanına `http://localhost:5215/signin-google` ekle. Yayına alınca `https://ALANADI/signin-google` adresini de ekle.
-4. Çıkan Client ID ve Client Secret'ı şu komutla kaydet:
+1. <https://console.cloud.google.com> → yeni proje (ör. "PreBot").
+2. **APIs & Services → OAuth consent screen:** External, uygulama adı "PreBot", destek e-postası. Scope eklemeye gerek yok. Yayına alınca **Publish app** yap; yoksa yalnızca test kullanıcıları girebilir.
+3. **Credentials → Create credentials → OAuth client ID:** Web application. **Authorized redirect URIs:** `http://localhost:5215/signin-google` ve yayında `https://ALANADI/signin-google`.
+4. Client ID ve Secret'ı kaydet (secret ekranda görünmez):
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\scripts\giris-ayarla.ps1
 ```
 
-Komutta **1**'i seç. Secret ekranda görünmez.
+**Discord (VPN'li kullanıcılar için):** <https://discord.com/developers/applications> → uygulaman → **OAuth2** → **Redirects** alanına `http://localhost:5215/signin-discord` (yayında `https://ALANADI/signin-discord`) ekle, **Reset Secret** ile secret al, aynı komutta **2**'yi seç.
 
-**Discord (VPN'li kullanıcılar için, yaklaşık 3 dakika):**
-1. <https://discord.com/developers/applications> → **PreBot** → **OAuth2** sayfasına git.
-2. **Redirects** alanına `http://localhost:5215/signin-discord` ekle.
-3. **Reset Secret** ile yeni bir secret al.
-4. Aynı komutu çalıştır ve **2**'yi seç. Client ID hazır gelir, sadece secret'ı yapıştır.
+### Discord botu (sitenin içinde)
 
-### 🚀 Yayına alma (VPS + Docker + otomatik HTTPS)
+Token ayarlıysa bot sitenin içinde çalışır: tek süreç, tek veritabanı. Sitede açılan her ilan seçtiğin kanallara **"Sitede katıl"** bağlantısıyla duyurulur (kimse etiketlenmez) ve ilan dolunca/kapanınca duyuru güncellenir. Slash komutları (`/musaitim`, `/musait-degilim`, `/havuz`, `/pre-lazim`, `/profil`, `/gizlilik`, `/verilerimi-sil`) aynen çalışır.
 
-Gerekenler:
-- Linux bir VPS (ör. Hetzner, aylık yaklaşık 6 €)
-- Bir alan adı (ör. `prebot.com.tr`)
-
-1. Alan adının DNS ayarlarında, alan adını VPS'in IP adresine yönlendiren bir **A kaydı** ekle.
-2. VPS'e Docker'ı kur:
-
-```bash
-curl -fsSL https://get.docker.com | sh
-```
-
-3. Projeyi VPS'e indir ve ayar dosyasını oluştur:
-
-```bash
-git clone <repo-adresi> prebot && cd prebot && cp deploy/.env.example .env
-```
-
-4. `.env` dosyasında en az `DOMAIN` ve `PUSH_SUBJECT` değerlerini doldur. Google ve Discord anahtarları isteğe bağlı. Google ve Discord konsollarına yönlendirme adresi (redirect URI) olarak `https://ALANADI/signin-google` ve `https://ALANADI/signin-discord` adreslerini de ekle.
-5. Siteyi başlat:
-
-```bash
-docker compose up -d --build
-```
-
-Caddy, HTTPS sertifikasını Let's Encrypt'ten kendisi alır ve yeniler. Push anahtarları ilk açılışta üretilip `prebot-data` volume'unda saklanır. Discord botunu da çalıştırmak istersen `.env` dosyasına `DISCORD_BOT_TOKEN` (ve duyuru kanalı için `DISCORD_FEED_CHANNELS`) eklemen yeterli: bot sitenin içinde çalışır, ayrı bir komut gerekmez. (`--profile discord` yalnızca botu siteden bağımsız, tek başına çalıştırmak içindir.)
-
-**Yedekleme:** veriler `prebot-data` volume'unda duruyor: veritabanı, push anahtarları ve oturum anahtarları. Volume'u düzenli olarak yedekle.
-
-**CI:** `.github/workflows/ci.yml` her push'ta şunları yapar:
-- uyarıları hata sayarak derler,
-- unutulmuş bir veritabanı migration'ı olup olmadığını kontrol eder,
-- bütün testleri çalıştırır,
-- Docker imajlarını derler ve web imajını `/health` adresiyle dener.
-
-### Veritabanı değişikliği yaparken
-
-Bir entity'yi değiştirdikten sonra şu komutla yeni bir migration ekle:
-
-```bash
-dotnet ef migrations add <Isim> --project src/PreBot.Core --output-dir Data/Migrations
-```
-
-Site ve bot açılışta veritabanını kendiliğinden günceller. Migration eklemeyi unutursan testler ve CI hata verir.
-
-### 🤖 Discord botu sitenin içinde (önerilen)
-
-Bot ayrı bir program olarak da çalışabilir. Ama sitenin içinde çalıştırmak daha iyi, çünkü:
-- Tek süreç ve tek veritabanı kullanılır.
-- **Sitede açılan her ilan**, seçtiğin Discord kanallarına **"Sitede katıl"** bağlantısıyla duyurulur. Kimse etiketlenmez; bu bir bildirim değil, duyuru.
-
-Discord'u kullanmaya devam eden oyuncular böylece siteye yönlenir. Bütün slash komutları da aynen çalışır.
-
-1. Token'ı sitenin ayarlarına kaydet:
+1. <https://discord.com/developers/applications> → **Bot → Reset Token**. Ayrıcalıklı intent gerekmez. Davet bağlantısı (`APP_ID` yerine Application ID): `https://discord.com/oauth2/authorize?client_id=APP_ID&scope=bot+applications.commands&permissions=84992` (yalnızca kanal görme, mesaj gönderme, bağlantı yerleştirme, geçmiş okuma).
+2. Token'ı kaydet (ekranda görünmez):
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\scripts\token-ayarla.ps1 -Proje web
 ```
 
-2. Duyuru kanalını ayarla. Discord'da Geliştirici Modu açıkken kanala sağ tıkla, **Kanal Kimliğini Kopyala**'yı seç ve şunu çalıştır:
+3. Duyuru kanalı: Discord'da Geliştirici Modu açıkken kanala sağ tık → **Kanal Kimliğini Kopyala**:
 
 ```bash
 dotnet user-secrets set "Discord:FeedChannels" "KANAL_ID" --project src/PreBot.Web
 ```
 
-3. Yayında `.env` dosyasına `DISCORD_BOT_TOKEN` yazman yeterli. Duyuru kanalı için `DISCORD_FEED_CHANNELS` (birden fazlaysa virgülle) ayarı ekle. Bağlantılar `https://ALANADI` adresine kendiliğinden yönlenir.
+Botu token'ı silmeden kapatmak için `Discord:Enabled=false`. Botu siteden bağımsız çalıştırmak istersen `src/PreBot` projesi (ve compose'daki `discord` profili) hâlâ var.
 
-Botu token’ı silmeden geçici olarak kapatmak için `Discord:Enabled=false` (ortam değişkeni: `Discord__Enabled=false`) kullan.
+## Yayına alma (VPS + Docker + otomatik HTTPS)
 
-Site ile botun bildirim dalgaları birbirine karışmaz: site yalnızca kendi ilanlarını, bot yalnızca Discord sunucularındaki ilanları işler.
+Gerekenler: küçük bir Linux VPS (2 vCPU / 4 GB yeterli) ve bir alan adı. Alan adında "LoL" ya da "League" geçmemeli (Riot kuralı).
 
-## Discord botu komutları
-
-| Komut | Ne yapar |
-|---|---|
-| `/musaitim` | Havuza girersin (rol, rank, 30 dk / 1 saat / 2 saat) |
-| `/musait-degilim` | Havuzdan çıkarsın |
-| `/havuz` | Şu an kaç kişinin müsait olduğunu rol rol gösterir |
-| `/pre-lazim` | Eksik kişi için ilan açar (rol, rank aralığı, 1–3 kişi, not) |
-| `/profil` | Riot ID'ni kaydeder (ör. `Oyuncu#TR1`); katıldığın ilanda ilan sahibine gösterilir |
-| `/gizlilik` | Hangi verilerin saklandığını gösterir |
-| `/verilerimi-sil` | Tüm verilerini siler |
-
-İlan butonları: **Katıl**, **Vazgeç**, **Gelmedi, yeniden ara** (sadece ilan sahibi), **İlanı kapat** (sadece ilan sahibi).
-
-## Kurulum (yaklaşık 10 dakika)
-
-**Gerekenler:** [.NET 10 SDK](https://dotnet.microsoft.com/download) ve bir Discord sunucusu (test için kendi sunucun yeterli).
-
-### 1. Discord'da bot oluştur
-1. <https://discord.com/developers/applications> → **New Application** → bir isim ver (ör. PreBot).
-2. **Bot** sekmesi → **Reset Token** → token'ı kopyala. Token'ı kimseyle paylaşma, git'e de koyma.
-3. Ayrıcalıklı intent'lerin (Presence, Server Members, Message Content) **hiçbirini açmana gerek yok.**
-4. **General Information** sekmesinden **Application ID**'yi kopyala.
-
-### 2. Botu sunucuna davet et
-Aşağıdaki adreste `APP_ID` yerine kendi Application ID'ni yaz ve tarayıcıda aç:
-
-```
-https://discord.com/oauth2/authorize?client_id=APP_ID&scope=bot+applications.commands&permissions=84992
-```
-
-Bu adresteki `84992` değeri yalnızca dört izin istiyor: Kanalları Görüntüle, Mesaj Gönder, Bağlantı Yerleştir, Mesaj Geçmişini Oku. Yönetici izni istemiyor.
-
-### 3. Token'ı ve test sunucusunu ayarla
-Discord'da **Ayarlar → Gelişmiş → Geliştirici Modu**'nu aç. Sonra sunucuna sağ tıkla → **Sunucu Kimliğini Kopyala**.
+1. DNS'te alan adını VPS'in IP'sine yönlendiren bir **A kaydı** ekle.
+2. VPS'e Docker kur:
 
 ```bash
-dotnet user-secrets set "Discord:Token" "BURAYA_TOKEN" --project src/PreBot
+curl -fsSL https://get.docker.com | sh
 ```
+
+3. Projeyi indir ve ayar dosyasını oluştur:
 
 ```bash
-dotnet user-secrets set "Discord:GuildId" "BURAYA_SUNUCU_KIMLIGI" --project src/PreBot
+git clone https://github.com/AlperCna/prebot.git prebot && cd prebot && cp deploy/.env.example .env
 ```
 
-`GuildId` ayarlanınca komutlar o sunucuda hemen görünür. Ayarlanmazsa komutlar tüm sunuculara kaydedilir ve görünmeleri biraz zaman alabilir.
-
-### 4. Çalıştır
-
-```bash
-dotnet run --project src/PreBot
-```
-
-Konsolda `Slash commands registered to test server ...` satırını görünce Discord'da `/` yazıp komutları dene. Veritabanı (`prebot.db`) ilk çalıştırmada kendiliğinden oluşur.
-
-### Testler
-
-```bash
-dotnet test
-```
-
-25 test var. Kapsadıkları:
-- eşleştirme kuralları,
-- aynı anda 12 kişi **Katıl**'a bastığında yalnızca birinin yeri alması,
-- vazgeçme ve gelmeyen kişi akışı,
-- süre dolması,
-- veri silme,
-- Discord komut tanımlarının geçerliliği.
-
-Testler gerçek bir SQLite dosyası üzerinde çalışır, sahte bir bellek veritabanı kullanılmaz.
-
-## Sunucuya kurma (sürekli açık kalsın diye)
-
-Ucuz bir VPS'te (ör. Hetzner, aylık birkaç €) Docker ile:
-
-```bash
-echo "DISCORD_TOKEN=BURAYA_TOKEN" > .env
-```
+4. `.env` dosyasını doldur. **Zorunlu:** `DOMAIN`, `PUSH_SUBJECT`, `SITE_OPERATOR_NAME`, `SITE_CONTACT_EMAIL` (aydınlatma metninde veri sorumlusu ve iletişim olarak gösterilir), `SITE_HOSTING_LOCATION`. İsteğe bağlı: Google/Discord anahtarları, `DISCORD_BOT_TOKEN`, `DISCORD_FEED_CHANNELS`, `BACKUP_HEARTBEAT_URL`, `RIOT_VERIFICATION_CODE`.
+5. Başlat:
 
 ```bash
 docker compose up -d --build
 ```
 
-Veritabanı `prebot-data` volume'unda saklanır. İlk hafta botu kendi bilgisayarında `dotnet run` ile çalıştırman da yeterli.
+Caddy HTTPS sertifikasını kendisi alır ve yeniler, güvenlik başlıklarını (HSTS vb.) ekler. Uygulama `X-Forwarded-*` başlıklarını yalnızca Caddy'nin sabit Docker ağından (`172.30.0.0/24`) kabul eder; böylece hız sınırları gerçek IP'yi görür. Push ve oturum anahtarları ilk açılışta üretilip `prebot-data` volume'unda saklanır.
+
+### Yedekleme
+
+Site her gece **05:00'te (TR saati)** kendi yedeğini alır: tutarlı bir veritabanı kopyası (`VACUUM INTO`), oturum anahtarları ve push (VAPID) anahtarı `/data/backups/YYYY-MM-DD/` altına yazılır. Son 7 gün, son 4 pazar ve 6 aylık ay başları saklanır. Aynı iş, 90 günden eski kapanmış ilanları siler (istatistikler anonim olay günlüğünde kalır).
+
+Yedeği sunucu dışına şifreli kopyalamak için [`deploy/backup-offsite.sh`](deploy/backup-offsite.sh) betiğini host'un cron'una ekle (rclone + crypt; kurulum betiğin içinde). `BACKUP_HEARTBEAT_URL` (ör. Healthchecks.io) ayarlanırsa her başarılı yedekte ping atılır; ping gelmezse e-posta alırsın.
+
+**Geri yükleme:** siteyi durdur, `prebot.db` dosyasını `/data/prebot-web.db` olarak, `keys/` klasörünü `/data/keys/`, `vapid-keys.json` dosyasını `/data/` altına kopyala, siteyi başlat. Bunu yayından önce bir kez dene.
+
+### İzleme
+
+- `/health` (veritabanı dahil), `/health/live` (süreç ayakta mı), `/health/ready`.
+- Loglar üretimde satır başına bir JSON nesnesi; konteyner logları 10 MB × 5 dosya döner. Push sonuçları ve reddedilme kodları (413, 429) loglanır.
+- Dış izleme için UptimeRobot ya da Better Stack'in ücretsiz katmanıyla `https://ALANADI/health` adresini izle (aynı VPS'teki bir izleyici VPS çökünce haber veremez).
+
+### Riot API
+
+Riot ID ve rank şu an kullanıcının beyanı, doğrulanmıyor. Doğrulama için site yayına girince Riot Developer Portal'dan **üretim anahtarına** başvur. Kişisel anahtar herkese açık sitelerde (açık beta dahil) kullanılamaz; yalnızca kapalı bir geliştirme grubunda denenebilir. Portal'ın verdiği doğrulama kodunu `RIOT_VERIFICATION_CODE` olarak ayarla; site onu `https://ALANADI/riot.txt` adresinde sunar.
+
+## Geliştirme
+
+```bash
+dotnet test
+```
+
+130'dan fazla test var: eşleştirme ve dalga kuralları, aynı anda 12 kişi **Katıl**'a bastığında yalnızca birinin yeri alması, vazgeçme ve gelmeme akışı, süre dolması, hız sınırları, kişisel katılma bağlantıları, istatistikler, yedek, veri silme ve saklama, giriş ve kabul adımı, güvenlik başlıkları, Discord komut tanımları. Testler gerçek SQLite dosyası üzerinde çalışır.
+
+Gerçek tarayıcıyla uçtan uca push testi (Edge/Chrome, çalışan siteye karşı, Discord botu kapalı):
+
+```bash
+dotnet run --project tools/PreBot.PushE2E -- http://localhost:5215
+```
+
+**Veritabanı değişikliği:** entity'yi değiştirdikten sonra migration ekle. Site açılışta veritabanını kendiliğinden günceller; migration unutulursa testler ve CI hata verir.
+
+```bash
+dotnet ef migrations add <Isim> --project src/PreBot.Core --output-dir Data/Migrations
+```
+
+**CI** (`.github/workflows/ci.yml`) her push'ta: gizli bilgi taraması (gitleaks), uyarıları hata sayan derleme, migration kontrolü, testler, Docker imajları ve `/health` denemesi. Dependabot NuGet, GitHub Actions ve Docker güncellemelerini haftalık PR olarak açar.
 
 ## Mimari
 
 ```
-src/PreBot.Core     Discord'dan bağımsız iş mantığı (test edilebilir)
-  Domain/           Rol, rank, ilan, müsaitlik; Türkçe isimler; Riot ID biçim kontrolü
-  Matching/         Saf eşleştirme kuralları: dalgalar, rank genişletme, sıralama, spam koruması
-  Data/             EF Core + SQLite
-  Services/         PreService: havuz, ilan, atomik yer alma, dalgalar, süre dolumu, KVKK silme
-src/PreBot          Discord katmanı (Discord.Net 3.20.2, .NET Generic Host)
-  Bot/PreModule     Slash komutları ve buton işleyicileri
-  Bot/ListingRenderer / ListingNotifier   İlan mesajı, yenileme, hedefli etiketleme
-  Bot/ExpiryWorker  20 saniyede bir: süresi dolanları kapatır, sırası gelen dalgaları gönderir
-tests/PreBot.Tests  xUnit
+src/PreBot.Core      İş mantığı (Discord'dan ve web'den bağımsız, test edilebilir)
+  Domain/            Rol, rank, ilan, müsaitlik, olay günlüğü; Türkçe isimler; Riot ID biçim kontrolü
+  Matching/          Saf eşleştirme kuralları: dalgalar, rank genişletme, sıralama
+  Data/              EF Core 10 + SQLite (WAL), migration'lar
+  Services/          PreService (havuz, ilan, atomik yer alma, dalgalar, süre dolumu, KVKK silme ve saklama),
+                     ActionLimiter, StatsService, AccountService, SubscriptionService
+src/PreBot.Web       Blazor Web App (asıl ürün): sayfalar, push, giriş, yedek, Discord duyurusu
+src/PreBot.Discord   Discord botu kütüphanesi (Discord.Net): slash komutları, butonlar, duyurular
+src/PreBot           Botu siteden bağımsız çalıştırmak için ince bir host
+tests/               xUnit: PreBot.Tests (çekirdek), PreBot.Web.Tests (WebApplicationFactory)
+tools/PreBot.PushE2E Gerçek tarayıcıyla uçtan uca push testi
+deploy/              Caddyfile, .env örneği, sunucu dışı yedek betiği
 ```
 
-**Önemli tasarım kararları** (gerekçeleri `arastirma/` klasöründe):
+**Önemli tasarım kararları:**
 
-- **Yarış durumu.** "Son yeri iki kişi aynı anda aldı" sorunu tek bir koşullu `UPDATE ... WHERE SlotsFilled < SlotsNeeded` sorgusuyla çözülüyor. Ek olarak benzersiz indeks var. Aynı dalga, atomik bir sayaç sayesinde iki kez gönderilemiyor.
-- **Süre dolumu.** Doğruluk zamanlayıcıya bağlı değil. Bütün sorgular `ExpiresAtUtc > şimdi` filtresini kendisi uyguluyor; zamanlayıcı yalnızca temizlik yapıyor ve mesajları güncelliyor.
-- **Ayrıcalıklı intent yok.** Bot yalnızca `Guilds` intent'iyle çalışıyor. Bu yüzden 100 sunucu sınırında Discord'un ek onayına takılmıyor.
-- **Riot API yok (şimdilik).** Rank, kullanıcının kendi beyanına dayanıyor. Riot'un politikası gereği bot kendi beceri puanını (MMR) hesaplamıyor, yalnızca resmi kademeleri kullanıyor.
+- **Yarış durumu:** "son yeri iki kişi aynı anda aldı" sorunu tek bir koşullu `UPDATE ... WHERE SlotsFilled < SlotsNeeded` ile çözülüyor; aynı dalga atomik bir sayaçla iki kez gönderilemiyor.
+- **Süre dolumu zamanlayıcıya bağlı değil:** bütün sorgular `ExpiresAtUtc > şimdi` filtresini kendisi uyguluyor; zamanlayıcı yalnızca temizlik yapıyor.
+- **İstatistikler anonim olay günlüğünden:** kullanıcı kimliği tutulmuyor; hesap silinince geçmiş değişmiyor.
+- **Rank beyanı:** PreBot kendi beceri puanını (MMR) hesaplamıyor; yalnızca resmi kademeleri kullanıyor (Riot politikası).
+- **Ayrıcalıklı Discord intent'i yok:** bot yalnızca `Guilds` intent'iyle çalışıyor.
 
 ## Veri ve gizlilik (KVKK)
 
-Bot şunları saklıyor:
-- Discord kullanıcı kimliği,
-- seçilen rol ve rank,
-- müsaitlik süresi,
-- isteğe bağlı Riot ID,
-- ilan kayıtları.
+Hangi verilerin, hangi amaçla ve ne kadar süre saklandığı sitedeki [aydınlatma metninde](src/PreBot.Web/Components/Pages/Privacy.razor) (`/gizlilik`) yazıyor. Kısaca: hesap kimliği ve görünen ad, isteğe bağlı Riot ID, müsaitlik (süresi dolunca silinir), ilanlar (kapandıktan 90 gün sonra silinir), push abonelikleri ve güvenlik logları. E-posta, konum ya da ödeme bilgisi alınmıyor. Kullanıcı **Profil → Verilerimi sil** (Discord'da `/verilerimi-sil`) ile her şeyi anında silebiliyor. Bu bölüm hukuki tavsiye değildir; yurt dışı aktarımlar (KVKK md. 9) için bir hukukçuya danışılması önerilir.
 
-Müsaitlik kayıtları süresi dolunca siliniyor. Kullanıcı `/verilerimi-sil` ile her şeyi anında silebiliyor. Bot yayına alınmadan önce bir hukukçuyla kontrol edilmeli; bu bölüm hukuki tavsiye değildir.
+## Yol haritası
 
-## Sonraki adımlar
+Güncel plan ve kararlar `arastirma/` klasöründe:
 
-- [ ] Yayına al (VPS + alan adı) ve 3 akşam gerçek oyuncularla dene: `/istatistik` sayfasında hedef dolum ≥ %50, medyan dolma süresi ≤ 10 dk
-- [x] Metrikler: `/istatistik` (dolum oranı, dolma süresi, bildirim sayısı, müsait kişi)
-- [ ] Katılıp gelmeme ("Gelmedi") oranını istatistiğe ekle
-- [ ] Riot doğrulaması: kişisel API anahtarıyla profil ikonu doğrulaması, gerçek Flex rankını çekme
-- [ ] Kadro dolunca geçici ses kanalı açma
-- [x] EF migrations
-- [x] GitHub Actions ile otomatik derleme ve test (CI)
+- [PreBot kesin karar](arastirma/reports/PreBot%20kesin%20karar.md): sorunu çözüyor mu, talep ve rakipler, devam/dur eşiği.
+- [PreBot geliştirme yol haritası](arastirma/reports/PreBot%20geliştirme%20yol%20haritası.md): Faz 0–3 planı.
+- [Durum raporu](docs/DURUM-RAPORU.md).
 
-Güncel durum için: [docs/DURUM-RAPORU.md](docs/DURUM-RAPORU.md).
-
-## Araştırma
-
-Bu botun neden böyle tasarlandığını anlatan araştırma raporları `arastirma/` klasöründe. Önce şunu oku: [Pre bot en iyi seçenek analizi](arastirma/reports/Pre%20bot%20en%20iyi%20seçenek%20analizi.md).
+Sıradaki büyük işler: yayına alma ve ilk kullanıcılar, Discord ile web'in tek havuzda birleşmesi, parti boyutu yardımcısı, bildirim hijyeni (sessize alma, sessiz saatler), engelleme ve şikâyet, Riot doğrulaması (üretim anahtarı gelince).
 
 ## Lisans
 
-[MIT](LICENSE). PreBot, Riot Games tarafından onaylanmamıştır. League of Legends, Riot Games, Inc.'in ticari markasıdır.
+[MIT](LICENSE).

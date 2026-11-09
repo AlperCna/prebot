@@ -153,6 +153,27 @@ public sealed partial class WebAppTests : IDisposable
     }
 
     [Fact]
+    public async Task Riot_verification_file_is_served_only_when_configured()
+    {
+        Assert.Equal(HttpStatusCode.NotFound, (await Client().GetAsync("/riot.txt")).StatusCode);
+
+        var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
+        {
+            b.UseEnvironment("Development");
+            b.UseSetting("Discord:Token", "");
+            b.UseSetting("Discord:Enabled", "false");
+            b.UseSetting("Database:JournalMode", "MEMORY");
+            b.UseSetting("Authentication:Google:ClientId", "");
+            b.UseSetting("ConnectionStrings:PreBot", $"Data Source={_dbPath}");
+            b.UseSetting("Push:PublicKey", TestKeys.PublicKey);
+            b.UseSetting("Push:PrivateKey", TestKeys.PrivateKey);
+            b.UseSetting("Riot:VerificationCode", "abc-123");
+        });
+        _factories.Add(factory);
+        Assert.Equal("abc-123", await factory.CreateClient().GetStringAsync("/riot.txt"));
+    }
+
+    [Fact]
     public async Task Login_endpoints_are_rate_limited_per_ip()
     {
         var client = Client();

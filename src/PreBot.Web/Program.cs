@@ -200,6 +200,13 @@ app.MapHealthChecks("/health");                                                 
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });             // process is up
 app.MapHealthChecks("/health/ready", new() { Predicate = c => c.Tags.Contains("ready") });
 app.MapAuthEndpoints();
+
+// Riot Developer Portal proves domain ownership with a text file at the site root (production key
+// application). Set Riot:VerificationCode to the code shown in the portal; nothing is served otherwise.
+if (app.Configuration["Riot:VerificationCode"] is { Length: > 0 } riotCode)
+{
+    app.MapGet(app.Configuration["Riot:VerificationPath"] ?? "/riot.txt", () => Results.Text(riotCode));
+}
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = "'none'");
 

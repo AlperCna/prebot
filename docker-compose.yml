@@ -1,7 +1,8 @@
 # Production on a VPS:
-#   1) cp deploy/.env.example .env   and fill it in (at least DOMAIN)
+#   1) cp deploy/.env.example .env   and fill it in (DOMAIN, PUSH_SUBJECT, SITE_* at least)
 #   2) docker compose up -d --build
-#   Discord bot too:  docker compose --profile discord up -d --build
+#   The Discord bot runs inside the website when DISCORD_BOT_TOKEN is set. The "discord" profile below
+#   is only for running the bot on its own, without the website.
 services:
   web:
     build:
@@ -30,6 +31,8 @@ services:
       ReverseProxy__KnownNetworks: 172.30.0.0/24
       # Optional dead-man's switch for the nightly backup (e.g. a Healthchecks.io ping URL).
       Backup__HeartbeatUrl: ${BACKUP_HEARTBEAT_URL:-}
+      # Riot production key application: the verification code shown in the Developer Portal.
+      Riot__VerificationCode: ${RIOT_VERIFICATION_CODE:-}
       # Only answer for the real domain (and localhost for the container health check).
       AllowedHosts: "${DOMAIN};localhost"
     volumes:
