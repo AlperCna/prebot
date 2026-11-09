@@ -93,21 +93,27 @@ Botu token'ı silmeden kapatmak için `Discord:Enabled=false`. Botu siteden bağ
 
 Site kendi bilgisayarında "yayın modunda" çalışır, Cloudflare'in hesapsız Quick Tunnel'ı ile internetten HTTPS adresi alır. Giriş, Google ayarı gerektirmeyen **isim + davet kodu** ile yapılır. Discord botu kapalıdır.
 
-1. Siteyi başlat (davet kodu ekranda yazar):
-
-```bash
-powershell -ExecutionPolicy Bypass -File .\scripts\deneme-sitesi.ps1
-```
-
-2. İkinci bir pencerede tüneli aç (ilk seferde `cloudflared` Cloudflare'in resmi GitHub sayfasından indirilir ve imzası kontrol edilir):
+1. İlk seferde `cloudflared`'i indirmek için tüneli bir kez elle aç (Cloudflare'in resmi GitHub sayfasından indirilir, imzası kontrol edilir), sonra Ctrl+C ile kapat:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\scripts\deneme-tuneli.ps1
 ```
 
-3. Çıktıdaki `https://....trycloudflare.com` adresini ve davet kodunu arkadaşlarına gönder.
+2. Sonraki her seferde tek komut: site ve tünel arka planda açılır, adres ve arkadaşlara gönderilecek hazır mesaj ekrana yazılır (ayrıca `%LOCALAPPDATA%\PreBot-deneme\davet-mesaji.txt`):
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\deneme-baslat.ps1
+```
+
+3. Durdurmak için:
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\deneme-durdur.ps1
+```
 
 Bilgisayarın açık kalmalı. Tünel adresi her açılışta değişir; adres değişince herkes bildirimleri yeniden açmalı. Veriler `%LOCALAPPDATA%\PreBot-deneme` klasöründe, geliştirme verilerinden ayrı tutulur. Davet kodunu bilen herkes istediği isimle girebilir; bu yüzden yalnızca kapalı arkadaş denemesi içindir.
+
+Deneme tutarsa ücretsiz kalıcı sunucu için: [docs/UCRETSIZ-SUNUCU.md](docs/UCRETSIZ-SUNUCU.md) (Oracle Cloud Always Free + DuckDNS, tek komutla kurulum).
 
 ## Yayına alma (VPS + Docker + otomatik HTTPS)
 

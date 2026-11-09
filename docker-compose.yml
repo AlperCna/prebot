@@ -27,6 +27,8 @@ services:
       Site__OperatorName: ${SITE_OPERATOR_NAME:-}
       Site__ContactEmail: ${SITE_CONTACT_EMAIL:-}
       Site__HostingLocation: ${SITE_HOSTING_LOCATION:-}
+      # Closed test: "name + invite code" login (leave empty to turn it off).
+      Site__InviteCode: ${SITE_INVITE_CODE:-}
       # Only Caddy (on this fixed network) may set X-Forwarded-For / X-Forwarded-Proto.
       ReverseProxy__KnownNetworks: 172.30.0.0/24
       # Optional dead-man's switch for the nightly backup (e.g. a Healthchecks.io ping URL).

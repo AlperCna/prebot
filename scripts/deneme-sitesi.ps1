@@ -45,9 +45,7 @@ Write-Host "Site: http://localhost:5215  (internetten erisim icin deneme-tuneli.
 Write-Host "Durdurmak icin Ctrl+C." -ForegroundColor DarkGray
 Write-Host ""
 
-Push-Location $app
-try {
-    dotnet .\PreBot.Web.dll
-} finally {
-    Pop-Location
-}
+# The process id is saved so deneme-durdur.ps1 stops exactly this site and nothing else.
+$proc = Start-Process dotnet -ArgumentList ".\PreBot.Web.dll" -WorkingDirectory $app -NoNewWindow -PassThru
+Set-Content -Path (Join-Path $data "site.pid") -Value $proc.Id -Encoding ascii
+Wait-Process -Id $proc.Id

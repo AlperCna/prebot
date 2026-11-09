@@ -1,5 +1,6 @@
 // End-to-end push test against a running PreBot.Web, using a real Edge/Chrome with a throwaway profile.
-// Usage: dotnet run --project tools/PreBot.PushE2E -- [baseUrl] [browserPath] [--headed]
+// Usage: dotnet run --project tools/PreBot.PushE2E -- [baseUrl] [browserPath] [--headed] [--invite CODE]
+//   --invite CODE: sign in with "name + invite code" (production mode) instead of the Development test login.
 //
 // What it proves: the browser really subscribes to its vendor's push service, the server really
 // delivers through it, the service worker really shows the system notification, and the
@@ -18,6 +19,8 @@ var browserPath = args.FirstOrDefault(a => a.EndsWith(".exe", StringComparison.O
         @"C:\Program Files\Google\Chrome\Application\chrome.exe",
     }.First(File.Exists);
 var headed = args.Contains("--headed");
+var inviteAt = Array.IndexOf(args, "--invite");
+var inviteCode = inviteAt >= 0 && inviteAt + 1 < args.Length ? args[inviteAt + 1] : null;
 var port = 9300 + Random.Shared.Next(0, 600);
 var profile = Path.Combine(Path.GetTempPath(), $"prebot-e2e-{Guid.NewGuid():N}");
 var run = DateTime.Now.ToString("HHmmss");
@@ -92,7 +95,17 @@ try
     async Task LoginAsync(Tab tab, string name, string returnUrl)
     {
         await tab.NavigateAsync($"{baseUrl}/giris?returnUrl={Uri.EscapeDataString(returnUrl)}");
-        await tab.EvalAsync($"document.querySelector('input[name=name]').value = '{name}'; document.querySelector('form[action=\"/auth/dev-login\"]').submit(); true");
+        if (inviteCode is null)
+        {
+            await tab.EvalAsync($"document.querySelector('input[name=name]').value = '{name}'; document.querySelector('form[action=\"/auth/dev-login\"]').submit(); true");
+        }
+        else
+        {
+            await tab.EvalAsync(
+                "(() => { const f = document.querySelector('form[action=\"/auth/invite-login\"]'); " +
+                $"f.querySelector('input[name=name]').value = '{name}'; f.querySelector('input[name=code]').value = '{inviteCode}'; " +
+                "f.querySelector('input[name=kabul]').checked = true; f.submit(); return true; })()");
+        }
         await tab.WaitForAsync($"location.pathname === '{returnUrl}'", TimeSpan.FromSeconds(15));
     }
 
