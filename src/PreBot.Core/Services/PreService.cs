@@ -603,9 +603,9 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             sources[entry.UserId] = NotificationSource.Pool;
         }
 
-        // "Bana haber ver" subscribers come after actively available players:
-        // from the second wave on, or right away when nobody available fits.
-        if (wave >= 1 || picked.Count == 0)
+        // "Bana haber ver" subscribers come after actively available players: from the second wave on, or
+        // right away when the active pool cannot fill the first wave (in a small community it rarely can).
+        if (wave >= 1 || picked.Count < Matcher.WaveSize(wave))
         {
             excluded.UnionWith(notify);
             var localNow = TurkeyTime.ToLocal(now);
@@ -862,6 +862,49 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             .Select(p => p.InGameUntilUtc!.Value)
             .ToListAsync(ct);
         return (times.Count, times.Count == 0 ? null : times.Min());
+    }
+
+    /// <summary>Notified players who did not get a seat: they hear "Doldu / Kapandı" when the listing closes.</summary>
+    public async Task<IReadOnlyList<ulong>> GetNotifiedUserIdsAsync(int listingId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ListingNotifications
+            .Where(n => n.ListingId == listingId
+                && !db.ListingSlots.Any(s => s.ListingId == listingId && s.UserId == n.UserId && !s.Released))
+            .Select(n => n.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
+    /// <summary>
+    /// A notified player tapped "Katıl" too late. Counted for the trial, and a "Bana haber ver" alert they lost
+    /// this way does not use up their daily limit or cooldown: they did answer, someone was just faster.
+    /// </summary>
+    public async Task RecordLostRaceAsync(int listingId, ulong userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        var heard = await db.ListingNotifications.FirstOrDefaultAsync(n => n.ListingId == listingId && n.UserId == userId && n.LostRaceAtUtc == null, ct);
+        if (heard is null)
+        {
+            return; // not invited to this race, or already counted
+        }
+
+        heard.LostRaceAtUtc = now;
+        var community = await db.Listings.Where(l => l.Id == listingId).Select(l => l.GuildId).SingleAsync(ct);
+        Record(db, MetricKind.LostRace, community, listingId, now,
+            source: heard.Source, sinceNotified: (int)(now - heard.SentAtUtc).TotalSeconds);
+        await db.SaveChangesAsync(ct);
+
+        if (heard.Source == NotificationSource.Alert)
+        {
+            var today = DateOnly.FromDateTime(TurkeyTime.ToLocal(now));
+            await db.AlertSubscriptions
+                .Where(s => s.CommunityId == community && s.UserId == userId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.LastNotifiedAtUtc, (DateTime?)null)
+                    .SetProperty(x => x.CountToday, x => x.CountDate == today && x.CountToday > 0 ? x.CountToday - 1 : x.CountToday), ct);
+        }
     }
 
     // ---------- Measurements for the trial ----------

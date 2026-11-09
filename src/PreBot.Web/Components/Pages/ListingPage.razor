@@ -6,6 +6,7 @@
 @inject PreBot.Web.Push.JoinTokens JoinTokens
 @inject ModerationService Moderation
 @inject ActionLimiter Limiter
+@inject SubscriptionService Subscriptions
 
 <PageTitle>İlan · PreBot</PageTitle>
 
@@ -147,6 +148,26 @@
         }
     }
 
+    @if (_lostRace && !insider)
+    {
+        <div class="pb-card mt-3 small">
+            <div class="fw-semibold mb-1">Bu sefer yetişemedin</div>
+            @if (_stayed)
+            {
+                <div class="text-dim">Havuzdasın: sıradaki uygun ilanda önce sana sorulacak.</div>
+            }
+            else if (_canStay)
+            {
+                <div class="text-dim mb-2">15 dakika havuzda kal: sıradaki uygun ilanda önce sana sorulur.</div>
+                <button class="btn btn-sm btn-gold" disabled="@(_busy || !Ready)" @onclick="StayAsync">15 dakika havuzda kal</button>
+            }
+            else
+            {
+                <div class="text-dim"><a href="/havuz">Havuzdan</a> "Şu an müsaitim" dersen sıradaki ilanda önce sana sorulur.</div>
+            }
+        </div>
+    }
+
     @if (isHost && active && _waiting.Count > 0)
     {
         <div class="small text-dim mt-2">
@@ -285,6 +306,9 @@
     private string? _viewerRiotId;
     private IReadOnlyDictionary<ulong, int> _noShows = new Dictionary<ulong, int>();
     private (int Count, DateTime? EarliestBackUtc) _waiting;
+    private bool _lostRace;
+    private bool _canStay;
+    private bool _stayed;
     private bool _reportOpen;
     private bool _reportSent;
     private string _reportTarget = "";
@@ -342,6 +366,12 @@
         {
             await JoinAsync();
         }
+        else if (l.Status != ListingStatus.Open && !alreadyIn && JoinTokens.IsValid(Katil, Id, UserId))
+        {
+            // Tapped "Katıl" on the notification, but the listing filled or closed before they got here.
+            await Actions.LostRaceAsync(Id, UserId);
+            await OfferStayAsync();
+        }
 
         Navigation.NavigateTo($"/ilan/{Id}", replace: true);
     }
@@ -358,6 +388,27 @@
         _busy = false;
     }
 
+    private async Task<string> LostAsync(string message)
+    {
+        await OfferStayAsync();
+        return message;
+    }
+
+    private async Task OfferStayAsync()
+    {
+        _lostRace = true;
+        _canStay = await Pre.GetAvailabilityAsync(Communities.Web, UserId) is null
+            && await Subscriptions.GetAlertAsync(Communities.Web, UserId) is { Enabled: true };
+        _stayed = await Pre.GetAvailabilityAsync(Communities.Web, UserId) is not null;
+    }
+
+    private async Task StayAsync()
+    {
+        _busy = true;
+        _stayed = await Actions.StayAvailableAsync(UserId, TimeSpan.FromMinutes(15));
+        _busy = false;
+    }
+
     private Task JoinAsync() => RunAsync(async () =>
     {
         var outcome = await Actions.ClaimAsync(Id, UserId);
@@ -367,7 +418,7 @@
             ClaimResult.RateLimited => ActionLimiter.RetryMessage(outcome.RetryAfter),
             ClaimResult.NeedsRiotId => "Katılmak için önce Riot ID'ni kaydet; ilan sahibi seni oyunda onunla davet edecek.",
             ClaimResult.HoldsOtherSeat => "Başka bir açık ilanda yerin var. Önce oradan vazgeç.",
-            ClaimResult.Full => "Biri senden önce davrandı, kadro doldu.",
+            ClaimResult.Full => await LostAsync("Biri senden önce davrandı, kadro doldu."),
             ClaimResult.AlreadyJoined => "Bu ilandan daha önce ayrıldın, tekrar katılamazsın.",
             _ => "Bu ilan artık açık değil.",
         };

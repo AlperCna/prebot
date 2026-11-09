@@ -52,6 +52,7 @@ builder.Services.AddSingleton<WaveDispatcher>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ActionLimiter>();
 builder.Services.AddSingleton<PreBot.Web.Auth.LoginFailures>();
+builder.Services.AddSingleton<ListingClosedPush>();
 builder.Services.AddSingleton<ModerationService>();
 
 // ---------- Live updates & notifications ----------

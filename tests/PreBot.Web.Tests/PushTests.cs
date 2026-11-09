@@ -86,7 +86,7 @@ public sealed class PushTests : IDisposable
 
         var request = Assert.Single(_push.Requests);
         Assert.Equal("https://push.example/alper-phone", request.Url);
-        Assert.Equal("120", request.Headers["TTL"]);
+        Assert.Equal("600", request.Headers["TTL"]); // while the listing is open, at most 10 minutes
         Assert.Equal("high", request.Headers["Urgency"]);
         Assert.Equal($"listing{result.Listing!.Id}", request.Headers["Topic"]);
         Assert.StartsWith("vapid t=", request.Headers["Authorization"]);
@@ -108,6 +108,33 @@ public sealed class PushTests : IDisposable
         var request = await _push.WaitForAsync("https://push.example/host-phone", TimeSpan.FromSeconds(5));
         Assert.Equal("high", request.Headers["Urgency"]);
         Assert.Equal("600", request.Headers["TTL"]); // the host may need a few minutes to see it
+    }
+
+    [Fact]
+    public async Task When_the_seat_is_taken_the_others_get_a_quiet_Doldu_in_place_of_their_notification()
+    {
+        var host = (await Get<AccountService>().GetOrCreateAsync("dev", "mert", "Mert")).UserId;
+        var fast = await PlayerWithPhoneAsync("Hizli", "https://push.example/fast");
+        var slow = await PlayerWithPhoneAsync("Yavas", "https://push.example/slow");
+        foreach (var p in new[] { fast, slow })
+        {
+            await Get<PoolActions>().SetAvailableAsync(p, Role.Support, Rank.Gold, TimeSpan.FromHours(1));
+        }
+
+        await Get<PreService>().SetRiotIdAsync(fast, "Hizli#TR1");
+        var id = (await Get<PoolActions>().CreateListingAsync(host, Role.Support, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id;
+        Assert.Equal(2, _push.Requests.Count);
+        _push.Clear();
+
+        await Get<PoolActions>().ClaimAsync(id, fast);
+
+        var doldu = await _push.WaitForAsync("https://push.example/slow", TimeSpan.FromSeconds(5));
+        Assert.Equal($"listing{id}", doldu.Headers["Topic"]); // replaces a push still waiting at the push service
+        Assert.DoesNotContain(_push.Requests, r => r.Url == "https://push.example/fast");
+
+        var payload = ListingClosedPush.ForClosed((await Get<PreService>().GetListingViewAsync(id))!.Listing);
+        Assert.StartsWith("Doldu: Support", payload.Title);
+        Assert.Equal(($"listing-{id}", true, null), (payload.Tag, payload.Quiet, payload.JoinUrl)); // same tag, no sound, no Katıl
     }
 
     [Fact]

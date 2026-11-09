@@ -17,9 +17,12 @@ self.addEventListener('push', (event) => {
         icon: '/icons/icon-192.png',
         badge: '/icons/badge-72.png',
         tag: data.tag || 'prebot',
-        renotify: true,
+        // A quiet update ("Doldu") replaces the earlier notification without buzzing again.
+        renotify: !data.quiet,
+        silent: !!data.quiet,
         requireInteraction: !!data.joinUrl,
-        vibrate: [200, 100, 200],
+        // Chrome refuses a vibration pattern on a silent notification.
+        ...(data.quiet ? {} : { vibrate: [200, 100, 200] }),
         data: {
             url: data.url || '/havuz',
             joinUrl: data.joinUrl || null,

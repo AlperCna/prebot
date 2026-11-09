@@ -31,13 +31,13 @@
         <div class="table-responsive">
             <table class="table table-sm mb-2 align-middle">
                 <thead>
-                    <tr><th>Haber nereden</th><th>Giden</th><th>Açılan</th><th>Maçtayım</th><th>Katılım</th><th>Açılma (medyan)</th><th>Katılım (medyan)</th></tr>
+                    <tr><th>Haber nereden</th><th>Giden</th><th>Açılan</th><th>Maçtayım</th><th>Katılım</th><th>Geç kalan</th><th>Açılma (medyan)</th><th>Katılım (medyan)</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var f in t.BySource)
                     {
                         <tr>
-                            <td>@SourceText(f.Source)</td><td>@f.Sent</td><td>@f.Opened</td><td>@f.InGame</td><td>@f.Claimed</td>
+                            <td>@SourceText(f.Source)</td><td>@f.Sent</td><td>@f.Opened</td><td>@f.InGame</td><td>@f.Claimed</td><td>@f.LostRaces</td>
                             <td>@Duration(f.MedianSecondsToOpen)</td><td>@Duration(f.MedianSecondsToClaim)</td>
                         </tr>
                     }

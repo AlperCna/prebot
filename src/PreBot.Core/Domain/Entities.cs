@@ -183,6 +183,9 @@ public sealed class ListingNotification
 
     /// <summary>When the player first opened the notification (null = not yet, or not measurable).</summary>
     public DateTime? OpenedAtUtc { get; set; }
+
+    /// <summary>When they tapped "Katıl" too late (someone else took the seat first).</summary>
+    public DateTime? LostRaceAtUtc { get; set; }
 }
 
 /// <summary>A browser/device that agreed to receive push notifications (Web Push). A user can have several.</summary>

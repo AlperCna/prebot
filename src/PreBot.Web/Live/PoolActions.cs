@@ -18,6 +18,8 @@ public sealed class PoolActions(
     HostNotifier host,
     ActionLimiter limiter,
     ModerationService moderation,
+    SubscriptionService subscriptions,
+    ListingClosedPush closedPush,
     ILogger<PoolActions> logger)
 {
     private const ulong Web = Communities.Web;
@@ -104,6 +106,14 @@ public sealed class PoolActions(
             live.PublishChanged();
             Background($"notify host of join {listingId}", () => host.JoinedAsync(listingId, userId));
             Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
+            if (outcome.Result == ClaimResult.ClaimedAndFilled)
+            {
+                Background($"tell the others it filled {listingId}", () => closedPush.SendAsync(listingId));
+            }
+        }
+        else if (outcome.Result is ClaimResult.Full or ClaimResult.NotOpen)
+        {
+            await pre.RecordLostRaceAsync(listingId, userId);
         }
 
         return outcome;
@@ -121,6 +131,35 @@ public sealed class PoolActions(
         }
 
         return result;
+    }
+
+    /// <summary>A player who arrived too late (the seat was taken) was invited to this listing: count it.</summary>
+    public Task LostRaceAsync(int listingId, ulong userId) => pre.RecordLostRaceAsync(listingId, userId);
+
+    /// <summary>
+    /// "15 dakika havuzda kal": after losing a race, be in the active pool so the next listing asks them first.
+    /// Uses their pool entry or "Bana haber ver" role and rank; false when there is neither.
+    /// </summary>
+    public async Task<bool> StayAvailableAsync(ulong userId, TimeSpan duration)
+    {
+        var current = await pre.GetAvailabilityAsync(Web, userId);
+        var alert = await subscriptions.GetAlertAsync(Web, userId);
+        (Role Role, Rank Rank)? basis = current is { } a ? (a.Role, a.Rank) : alert is { } s ? (s.Role, s.Rank) : null;
+        if (basis is not { } b)
+        {
+            return false;
+        }
+
+        var left = current is null ? TimeSpan.Zero : current.ExpiresAtUtc - DateTime.UtcNow;
+        await SetAvailableAsync(userId, b.Role, b.Rank, left > duration ? left : duration);
+        return true;
+    }
+
+    /// <summary>"Bana haber ver" in one tap: evenings, for the role and rank they picked on the pool page.</summary>
+    public async Task QuickAlertAsync(ulong userId, Role role, Rank rank)
+    {
+        await subscriptions.SaveAlertAsync(Web, userId, role, rank, fromHour: 19, toHour: 0, enabled: true);
+        live.PublishChanged();
     }
 
     /// <summary>"Maçtayım, bitince haber ver": no notifications for a while, then this listing (or another) again.</summary>
@@ -168,6 +207,7 @@ public sealed class PoolActions(
         {
             live.PublishChanged();
             Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
+            Background($"tell the others it closed {listingId}", () => closedPush.SendAsync(listingId));
         }
 
         return outcome;
@@ -195,6 +235,7 @@ public sealed class PoolActions(
         {
             live.PublishChanged();
             Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
+            Background($"tell the others it filled {listingId}", () => closedPush.SendAsync(listingId)); // only if it is full now
         }
 
         return outcome;
@@ -219,6 +260,7 @@ public sealed class PoolActions(
         foreach (var listingId in closed)
         {
             Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
+            Background($"tell the others it closed {listingId}", () => closedPush.SendAsync(listingId));
         }
     }
 

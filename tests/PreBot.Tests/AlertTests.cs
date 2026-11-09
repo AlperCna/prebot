@@ -44,16 +44,53 @@ public sealed class AlertTests : IDisposable
     }
 
     [Fact]
-    public async Task Subscribers_wait_for_wave_two_when_someone_available_fits()
+    public async Task Subscribers_wait_for_wave_two_only_when_the_active_pool_fills_the_first_wave()
+    {
+        for (ulong u = 10; u < 10 + (ulong)Matcher.WaveSize(0); u++)
+        {
+            await _t.Service.SetAvailableAsync(Web, u, Role.Support, Rank.Gold, TimeSpan.FromHours(1));
+        }
+
+        await AlertAsync(20);
+        var id = await OpenAsync();
+
+        Assert.DoesNotContain(20UL, (await _t.Service.RunNextWaveAsync(id))!.UserIds);
+
+        _t.Time.Advance(Matcher.DelayAfterWave(0));
+        Assert.Equal([20UL], (await _t.Service.RunNextWaveAsync(id))!.UserIds);
+    }
+
+    [Fact]
+    public async Task Subscribers_join_the_first_wave_when_the_active_pool_is_thin()
     {
         await _t.Service.SetAvailableAsync(Web, 10, Role.Support, Rank.Gold, TimeSpan.FromHours(1));
         await AlertAsync(20);
         var id = await OpenAsync();
 
-        Assert.Equal([10UL], (await _t.Service.RunNextWaveAsync(id))!.UserIds);
+        Assert.Equal([10UL, 20UL], (await _t.Service.RunNextWaveAsync(id))!.UserIds); // available players first
+    }
 
-        _t.Time.Advance(Matcher.DelayAfterWave(0));
-        Assert.Equal([20UL], (await _t.Service.RunNextWaveAsync(id))!.UserIds);
+    [Fact]
+    public async Task A_subscriber_who_answered_too_late_is_not_charged_for_that_alert()
+    {
+        await AlertAsync(20);
+        await AlertAsync(21);
+        var id = await OpenAsync();
+        Assert.Equal([20UL, 21UL], (await _t.Service.RunNextWaveAsync(id))!.UserIds.Order());
+        await _t.Service.SetRiotIdAsync(21, "Hizli#TR1");
+        await _t.Service.TryClaimAsync(id, 21);
+
+        // 20 tapped "Katıl" a moment later: the seat is gone, so the alert is given back.
+        await _t.Service.RecordLostRaceAsync(id, 20);
+        await _t.Service.RecordLostRaceAsync(id, 20); // counted once
+        var lost = (await _subs.GetAlertAsync(Web, 20))!;
+        Assert.Equal((0, (DateTime?)null), (lost.CountToday, lost.LastNotifiedAtUtc));
+        Assert.Equal(1, (await _subs.GetAlertAsync(Web, 21))!.CountToday); // the winner's alert counts
+
+        // Told about the next listing right away instead of waiting out the cooldown.
+        var next = (await _t.Service.CreateListingAsync(Web, Web, 2, Role.Support, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id;
+        Assert.Contains(20UL, (await _t.Service.RunNextWaveAsync(next))!.UserIds);
+        Assert.Equal([20UL], await _t.Service.GetNotifiedUserIdsAsync(next));
     }
 
     [Fact]

@@ -15,6 +15,7 @@ public sealed class PoolWorker(
     WaveDispatcher waves,
     LiveUpdates live,
     HostNotifier host,
+    ListingClosedPush closedPush,
     IListingFeed feed,
     PreBotOptions options,
     ILogger<PoolWorker> logger) : BackgroundService
@@ -33,6 +34,7 @@ public sealed class PoolWorker(
                 {
                     // Both check the community themselves: Discord-server listings are the bot's business.
                     await Safe(() => host.ExpiredAsync(listingId, stoppingToken), "expired push", listingId);
+                    await Safe(() => closedPush.SendAsync(listingId, stoppingToken), "closed push", listingId);
                     await Safe(() => feed.UpdateAsync(listingId, stoppingToken), "announcement update", listingId);
                 }
 

@@ -207,6 +207,9 @@ namespace PreBot.Core.Data.Migrations
                     b.Property<int>("ListingId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("LostRaceAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("OpenedAtUtc")
                         .HasColumnType("TEXT");
 

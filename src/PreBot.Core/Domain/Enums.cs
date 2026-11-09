@@ -54,6 +54,9 @@ public enum MetricKind
 
     /// <summary>Push services accepted this many device deliveries for one wave (Value).</summary>
     PushAccepted,
+
+    /// <summary>A notified player tapped "Katıl" but someone else was faster (or the listing had closed).</summary>
+    LostRace,
 }
 
 /// <summary>Why a player heard about a listing. Measured, so the trial shows which way of finding players works.</summary>

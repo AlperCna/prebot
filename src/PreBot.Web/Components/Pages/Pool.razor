@@ -61,7 +61,6 @@
 else
 {
     <div class="pb-card">
-        <div class="fw-semibold mb-2">Şu an oynayabilir misin?</div>
         <div class="row g-2 align-items-end">
             <div class="col-6 col-md-3">
                 <label class="form-label">Rol</label>
@@ -81,17 +80,33 @@ else
                     }
                 </select>
             </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label">Süre</label>
+        </div>
+
+        @if (!_alertOn)
+        {
+            <div class="mt-3">
+                <button class="btn btn-gold" disabled="@(_busy || !Ready)" @onclick="QuickAlertAsync"><Icon Name="bell" /> Akşamları bana haber ver</button>
+                <div class="text-dim small mt-1">
+                    19:00–00:00 arası sana uyan bir ilan açılınca haber gelir; her akşam bir şey yapman gerekmez.
+                    Saatleri <a href="/bildirimler">Bildirimler</a>'den değiştirebilirsin.
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-dim small mt-2"><Icon Name="check" /> "Bana haber ver" açık. <a href="/bildirimler">Ayarlar</a></div>
+        }
+
+        <div class="d-flex flex-wrap gap-2 align-items-end mt-3">
+            <div>
+                <label class="form-label small text-dim mb-1">Şu an oynayabiliyorsan, önce sana sorulsun</label>
                 <select class="form-select" @bind="_minutes">
                     <option value="30">30 dakika</option>
                     <option value="60">1 saat</option>
                     <option value="120">2 saat</option>
                 </select>
             </div>
-            <div class="col-6 col-md-3">
-                <button class="btn btn-gold w-100" disabled="@(_busy || !Ready)" @onclick="() => SetAvailableAsync(_role, _rank, _minutes)">Şu an müsaitim</button>
-            </div>
+            <button class="btn @(_alertOn ? "btn-gold" : "btn-outline-light")" disabled="@(_busy || !Ready)" @onclick="() => SetAvailableAsync(_role, _rank, _minutes)">Şu an müsaitim</button>
         </div>
     </div>
 }
@@ -185,6 +200,14 @@ else
     {
         _busy = true;
         await Actions.SetAvailableAsync(UserId, role, rank, TimeSpan.FromMinutes(minutes));
+        await LoadAsync();
+        _busy = false;
+    }
+
+    private async Task QuickAlertAsync()
+    {
+        _busy = true;
+        await Actions.QuickAlertAsync(UserId, _role, _rank);
         await LoadAsync();
         _busy = false;
     }

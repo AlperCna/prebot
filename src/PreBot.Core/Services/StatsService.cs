@@ -22,7 +22,7 @@ public sealed record StatsSummary(
 /// <summary>One way of reaching players, from notification to seat.</summary>
 public sealed record SourceFunnel(
     NotificationSource Source, int Sent, int Opened, int InGame, int Claimed,
-    double? MedianSecondsToOpen, double? MedianSecondsToClaim);
+    double? MedianSecondsToOpen, double? MedianSecondsToClaim, int LostRaces = 0);
 
 /// <summary>
 /// Trial measurements for the operator: which way of reaching players fills seats, how fast people answer,
@@ -54,7 +54,7 @@ public sealed class StatsService(IDbContextFactory<PreBotDbContext> dbFactory, T
         var kinds = new[]
         {
             MetricKind.NotificationsSent, MetricKind.NotificationOpened, MetricKind.InGameReported, MetricKind.SeatClaimed,
-            MetricKind.SeatReleased, MetricKind.ProfileOpened, MetricKind.PushAccepted,
+            MetricKind.SeatReleased, MetricKind.ProfileOpened, MetricKind.PushAccepted, MetricKind.LostRace,
         };
         var events = await db.MetricEvents.AsNoTracking()
             .Where(e => e.CommunityId == communityId && e.AtUtc >= since && kinds.Contains(e.Kind))
@@ -72,7 +72,8 @@ public sealed class StatsService(IDbContextFactory<PreBotDbContext> dbFactory, T
                 mine.Count(e => e.Kind == MetricKind.InGameReported),
                 claimed.Count,
                 Median(opened.Select(e => e.SinceNotifiedSeconds)),
-                Median(claimed.Select(e => e.SinceNotifiedSeconds)));
+                Median(claimed.Select(e => e.SinceNotifiedSeconds)),
+                mine.Count(e => e.Kind == MetricKind.LostRace));
         }).ToList();
 
         var notifiedClaims = events.Where(e => e.Kind == MetricKind.SeatClaimed && e.SinceNotifiedSeconds is not null).ToList();

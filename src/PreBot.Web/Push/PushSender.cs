@@ -10,9 +10,10 @@ namespace PreBot.Web.Push;
 /// <summary>What the service worker receives and turns into a system notification.</summary>
 /// <param name="OpenedUrl">The service worker posts here when the notification is opened (trial measurement).</param>
 /// <param name="InGameUrl">"Maçtayım, sonra" button: the service worker posts here.</param>
+/// <param name="Quiet">Replaces an earlier notification with the same tag without sound or vibration.</param>
 public sealed record PushPayload(
     string Title, string Body, string Url, string? JoinUrl, string Tag, string? MuteUrl = null,
-    string? OpenedUrl = null, string? InGameUrl = null);
+    string? OpenedUrl = null, string? InGameUrl = null, bool Quiet = false);
 
 /// <summary>Sends Web Push messages to every registered device of the given users.</summary>
 public sealed class PushSender(
