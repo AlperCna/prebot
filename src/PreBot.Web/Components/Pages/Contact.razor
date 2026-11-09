@@ -1,0 +1,35 @@
+@page "/iletisim"
+@inject SiteInfo Site
+
+<PageTitle>İletişim · PreBot</PageTitle>
+
+<div class="prose">
+    <h1 class="h3">İletişim</h1>
+    <p>
+        PreBot, <strong>@Site.Operator</strong> tarafından ücretsiz ve kâr amacı olmadan işletilen açık kaynaklı bir
+        topluluk projesidir.
+    </p>
+    <p>
+        E-posta:
+        @if (Site.HasEmail)
+        {
+            <a href="mailto:@Site.ContactEmail"><strong>@Site.ContactEmail</strong></a>
+        }
+        else
+        {
+            <strong>@Site.Email</strong>
+        }
+    </p>
+
+    <h2>Bir ilanı ya da oyuncuyu şikâyet etmek</h2>
+    <p>
+        Hakaret, taciz, sahte bilgi ya da hukuka aykırı bir içerik görürsen ilanın bağlantısını ve kısa bir açıklamayı
+        yukarıdaki adrese gönder. İçerik incelenir; uygunsuzsa kaldırılır ve gerekirse hesap kapatılır.
+    </p>
+
+    <h2>Kişisel veriler</h2>
+    <p>Kişisel verilerinle ilgili talepler için <a href="/gizlilik">Gizlilik ve KVKK</a> sayfasına bak.</p>
+
+    <h2>Kaynak kodu</h2>
+    <p>Kaynak kodu açıktır; hata bildirimleri ve öneriler proje deposuna yazılabilir.</p>
+</div>

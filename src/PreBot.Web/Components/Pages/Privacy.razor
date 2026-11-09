@@ -1,34 +1,106 @@
 @page "/gizlilik"
+@inject SiteInfo Site
 
 <PageTitle>Gizlilik ve KVKK · PreBot</PageTitle>
 
 <div class="prose">
     <h1 class="h3">Gizlilik ve KVKK Aydınlatma Metni</h1>
-    <p class="text-dim small">Son güncelleme: 8 Kasım 2026. Bu metin bir taslaktır; yayına almadan önce bir hukukçuya kontrol ettirilmelidir.</p>
+    <p class="text-dim small">Son güncelleme: 9 Kasım 2026.</p>
 
-    <h2>Hangi verileri saklıyoruz?</h2>
+    <h2>Veri sorumlusu</h2>
+    <p>
+        PreBot ücretsiz, açık kaynaklı ve kâr amacı gütmeyen bir topluluk projesidir. Bu sitedeki kişisel verilerin
+        veri sorumlusu <strong>@Site.Operator</strong>'dur. İletişim: <strong>@Site.Email</strong>
+        (ayrıca <a href="/iletisim">İletişim</a> sayfası).
+    </p>
+
+    <h2>Hangi verileri, neden ve ne kadar süre saklıyoruz?</h2>
+    <div class="table-responsive">
+        <table class="table table-sm table-dark align-top small">
+            <thead>
+                <tr><th>Veri</th><th>Amaç</th><th>Saklama süresi</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Hesap:</strong> giriş yaptığın hizmetteki hesap kimliğin (Google ya da Discord), görünen adın, kullanım şartlarını kabul ettiğin an</td>
+                    <td>Seni tanımak, oturumunu açık tutmak</td>
+                    <td>Hesabını silene kadar</td>
+                </tr>
+                <tr>
+                    <td><strong>Riot ID</strong> (isteğe bağlı)</td>
+                    <td>Yalnızca katıldığın ya da açtığın ilandaki oyunculara gösterilir, oyunda birbirinizi eklemeniz için</td>
+                    <td>Hesabını silene kadar</td>
+                </tr>
+                <tr>
+                    <td><strong>Müsaitlik:</strong> rol, rank beyanı, süre</td>
+                    <td>Uygun ilanlarda sana haber vermek</td>
+                    <td>Seçtiğin süre dolunca kendiliğinden silinir</td>
+                </tr>
+                <tr>
+                    <td><strong>"Bana haber ver" ayarı:</strong> rol, rank, saat aralığı, bildirim sayaçları</td>
+                    <td>Belirlediğin saatlerde uygun ilanlarda haber vermek</td>
+                    <td>Kapatana ya da hesabını silene kadar</td>
+                </tr>
+                <tr>
+                    <td><strong>İlanlar ve katılımlar:</strong> açtığın ilanlar, katıldığın yerler, kime hangi ilan için bildirim gittiği</td>
+                    <td>Eşleştirmeyi yürütmek, aynı ilan için kimseye iki kez haber göndermemek</td>
+                    <td>Kapanan ilanlar 90 gün sonra silinir</td>
+                </tr>
+                <tr>
+                    <td><strong>Bildirim aboneliği:</strong> tarayıcının push adresi ve şifreleme anahtarları, cihaz etiketi (ör. "Android · Chrome")</td>
+                    <td>Site kapalıyken telefonuna/bilgisayarına bildirim göndermek</td>
+                    <td>Bildirimleri kapatana, tarayıcı aboneliği iptal edene ya da hesabını silene kadar</td>
+                </tr>
+                <tr>
+                    <td><strong>Güvenlik kayıtları:</strong> IP adresi ve istek bilgileri (sunucu günlükleri)</td>
+                    <td>Kötüye kullanımı ve saldırıları engellemek (hız sınırı)</td>
+                    <td>Günlükler dönerek silinir, en fazla 30 gün</td>
+                </tr>
+                <tr>
+                    <td><strong>Yedekler</strong></td>
+                    <td>Arıza durumunda verileri geri getirmek</td>
+                    <td>En fazla 6 ay</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p>
+        İstatistikler (kaç ilan açıldı, ne kadar sürede doldu) <strong>kimlik içermeyen</strong> olay kayıtlarından
+        hesaplanır. Şifre, e-posta adresi, konum ya da ödeme bilgisi toplamıyoruz. Veriler satılmaz, reklam için
+        kullanılmaz. Kendi beceri puanımızı hesaplamayız; rank, senin beyan ettiğin resmi Riot kademesidir ve
+        doğrulanmaz.
+    </p>
+
+    <h2>Hukuki sebep (KVKK md. 5)</h2>
     <ul>
-        <li><strong>Hesap:</strong> giriş yaptığın hizmetteki kimliğin (ör. Google hesap kimliği) ve görünen ismin.</li>
-        <li><strong>Riot ID</strong> (isteğe bağlı): yalnızca katıldığın ya da açtığın ilandaki oyunculara gösterilir.</li>
-        <li><strong>Müsaitlik:</strong> seçtiğin rol, rank ve süre. Süre dolunca otomatik silinir.</li>
-        <li><strong>İlanlar:</strong> açtığın ilanlar ve katıldığın yerler.</li>
+        <li>Hizmetin kurulması ve ifası için gerekli olması (md. 5/2-c): hesap, Riot ID, müsaitlik, ilanlar, bildirimler.</li>
+        <li>Meşru menfaat (md. 5/2-f): güvenlik kayıtları ve yedekler.</li>
     </ul>
-    <p>Şifre, e-posta içeriği, konum ya da ödeme bilgisi toplamıyoruz.</p>
 
-    <h2>Neden?</h2>
-    <p>Tek amaç sana ve başkalarına League of Legends'ta takım arkadaşı bulmak. Veriler satılmaz, reklam için kullanılmaz.
-        Kendi beceri puanımızı hesaplamayız; rank, senin beyan ettiğin resmi Riot kademesidir.</p>
-
-    <h2>Hukuki dayanak (KVKK md. 5)</h2>
-    <p>Hizmeti kullanmak için kendi isteğinle verdiğin bilgiler, hizmetin kurulması ve ifası için işlenir.</p>
-
-    <h2>Ne kadar süre?</h2>
-    <p>Müsaitlik kayıtları süreleri dolunca silinir. Hesabını sildiğinde tüm verilerin anında silinir.</p>
+    <h2>Kimlere aktarılıyor? (yurt dışı dahil, KVKK md. 8–9)</h2>
+    <ul>
+        <li><strong>Sunucu:</strong> site @Site.Hosting konumundaki bir sunucuda çalışır.</li>
+        <li><strong>Giriş:</strong> Google ya da Discord ile girişte, giriş işlemi o hizmet üzerinden yapılır.</li>
+        <li><strong>Bildirimler:</strong> bildirimler tarayıcının kendi push servisi üzerinden iletilir (Chrome/Android: Google,
+            Firefox: Mozilla, Safari/iPhone: Apple, Edge: Microsoft). İçerik şifrelidir.</li>
+        <li><strong>Discord duyurusu:</strong> açtığın ilan (rol, rank aralığı, not, görünen adın) seçilmiş Discord kanallarında duyurulabilir.</li>
+        <li><strong>Yedekler:</strong> şifrelenerek sunucu dışındaki bir depolama alanına kopyalanır.</li>
+    </ul>
+    <p class="small text-dim">Bu hizmet sağlayıcıların bir kısmı yurt dışındadır. Aktarımlar yalnızca hizmeti sunmak için gereken
+        en az veriyle sınırlıdır.</p>
 
     <h2>Haklarını nasıl kullanırsın? (KVKK md. 11)</h2>
-    <p><strong>Profil → Verilerimi sil</strong> ile her şeyi anında silebilirsin. Diğer talepler için proje deposundaki
-        iletişim kanalını kullanabilirsin; 30 gün içinde ücretsiz yanıtlanır.</p>
+    <p>
+        <strong>Profil → Verilerimi sil</strong> ile her şeyi anında silebilirsin. Bilgi alma, düzeltme, itiraz gibi diğer
+        talepler için <strong>@Site.Email</strong> adresine yazabilirsin; en geç 30 gün içinde ücretsiz yanıtlanır.
+        Kişisel Verileri Koruma Kurulu'na şikâyet hakkın da saklıdır.
+    </p>
 
     <h2>Çerezler</h2>
-    <p>Yalnızca oturumunu açık tutan zorunlu bir çerez kullanıyoruz. Reklam ya da takip çerezi yok.</p>
+    <p>Yalnızca zorunlu çerezler kullanıyoruz: oturumunu açık tutan <code>prebot.auth</code>, giriş sırasında kısa süreli
+        <code>prebot.external</code> ve form güvenliği için antiforgery çerezi. Reklam, analitik ya da takip çerezi yok;
+        bu yüzden çerez onayı istenmez.</p>
+
+    <h2>Yaş</h2>
+    <p>PreBot'u kullanmak için 16 yaşından büyük olmalısın.</p>
 </div>

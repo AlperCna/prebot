@@ -589,6 +589,32 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
     // ---------- Privacy (KVKK) ----------
 
+    /// <summary>How long closed listings (with their seats and notification records) are kept.</summary>
+    public static readonly TimeSpan ClosedListingRetention = TimeSpan.FromDays(90);
+
+    /// <summary>Deletes closed listings older than <see cref="ClosedListingRetention"/>. Returns how many.</summary>
+    public async Task<int> PurgeOldListingsAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var cutoff = Now - ClosedListingRetention;
+        var ids = await db.Listings
+            .Where(l => l.CreatedAtUtc < cutoff && l.Status != ListingStatus.Open)
+            .Select(l => l.Id)
+            .ToListAsync(ct);
+        if (ids.Count == 0)
+        {
+            return 0;
+        }
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.ListingSlots.Where(s => ids.Contains(s.ListingId)).ExecuteDeleteAsync(ct);
+        await db.ListingNotifications.Where(n => ids.Contains(n.ListingId)).ExecuteDeleteAsync(ct);
+        await db.ListingAnnouncements.Where(a => ids.Contains(a.ListingId)).ExecuteDeleteAsync(ct);
+        await db.Listings.Where(l => ids.Contains(l.Id)).ExecuteDeleteAsync(ct);
+        await tx.CommitAsync(ct);
+        return ids.Count;
+    }
+
     /// <summary>Deletes everything stored about a user. Seats they hold are given back first.</summary>
     public async Task<DeleteUserDataResult> DeleteUserDataAsync(ulong userId, CancellationToken ct = default)
     {

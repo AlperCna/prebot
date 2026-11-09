@@ -40,6 +40,16 @@ public sealed class AccountService(IDbContextFactory<PreBotDbContext> dbFactory,
         }
     }
 
+    /// <summary>Records the first time the user accepted the terms; later logins keep the original time.</summary>
+    public async Task MarkTermsAcceptedAsync(ulong userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = time.GetUtcNow().UtcDateTime;
+        await db.Accounts
+            .Where(a => a.Id == (long)userId && a.TermsAcceptedAtUtc == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.TermsAcceptedAtUtc, now), ct);
+    }
+
     public async Task<UserAccount?> FindAsync(ulong userId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

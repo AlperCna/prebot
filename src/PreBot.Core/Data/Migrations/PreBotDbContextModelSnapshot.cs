@@ -326,6 +326,9 @@ namespace PreBot.Core.Data.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("TermsAcceptedAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Provider", "ProviderKey")

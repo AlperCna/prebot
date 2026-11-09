@@ -93,6 +93,22 @@ public sealed class StatsTests : IDisposable
     }
 
     [Fact]
+    public async Task Closed_listings_are_deleted_after_90_days_but_statistics_stay()
+    {
+        var old = await OpenAsync(1);
+        await _t.Service.TryClaimAsync(old, 10);
+        _t.Time.Advance(TimeSpan.FromDays(91));
+        var open = await OpenAsync(2);
+
+        Assert.Equal(1, await _t.Service.PurgeOldListingsAsync());
+
+        await using var db = _t.NewContext();
+        Assert.Equal([open], db.Listings.Select(l => l.Id).ToList());
+        Assert.Empty(db.ListingSlots.Where(s => s.ListingId == old));
+        Assert.Equal(1, (await _stats.GetAsync(Web, TimeSpan.FromDays(120))).ListingsFilled);
+    }
+
+    [Fact]
     public async Task Old_listings_fall_out_of_the_window_and_other_communities_are_ignored()
     {
         await OpenAsync(1);

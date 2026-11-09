@@ -12,6 +12,7 @@ namespace PreBot.Web.Ops;
 /// </summary>
 public sealed class BackupRunner(
     IDbContextFactory<PreBotDbContext> dbFactory,
+    PreBot.Core.Services.PreService pre,
     DataDirectory data,
     IHttpClientFactory httpClients,
     IConfiguration config,
@@ -27,6 +28,13 @@ public sealed class BackupRunner(
         var folder = Path.Combine(BackupRoot, date.ToString(DateFormat, CultureInfo.InvariantCulture));
         try
         {
+            // Retention first (KVKK: closed listings are kept 90 days), so deleted data isn't backed up again.
+            var purged = await pre.PurgeOldListingsAsync(ct);
+            if (purged > 0)
+            {
+                logger.LogInformation("Deleted {Count} closed listing(s) older than 90 days", purged);
+            }
+
             Directory.CreateDirectory(folder);
 
             // VACUUM INTO writes a consistent copy even while the app is writing (WAL). Copying the .db file

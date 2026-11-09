@@ -23,6 +23,7 @@ var dataDirectory = builder.Configuration["DataDirectory"]
         : builder.Environment.ContentRootPath);
 Directory.CreateDirectory(dataDirectory);
 builder.Services.AddSingleton(new DataDirectory(dataDirectory));
+builder.Services.AddSingleton(PreBot.Web.SiteInfo.From(builder.Configuration));
 
 // ---------- Core (same library the Discord bot uses) ----------
 builder.Services.AddSingleton(builder.Configuration.GetSection("PreBot").Get<PreBotOptions>() ?? new PreBotOptions());

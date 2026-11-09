@@ -64,7 +64,7 @@ public sealed class ExternalLoginTests : IDisposable
     [Fact]
     public async Task Google_login_redirects_to_google_without_asking_for_email()
     {
-        var response = await NoRedirect(Factory(configured: true)).GetAsync("/auth/login/google?returnUrl=%2Filan%2F5");
+        var response = await NoRedirect(Factory(configured: true)).GetAsync("/auth/login/google?returnUrl=%2Filan%2F5&kabul=1");
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         var location = Uri.UnescapeDataString(response.Headers.Location!.ToString());
@@ -78,7 +78,7 @@ public sealed class ExternalLoginTests : IDisposable
     [Fact]
     public async Task Discord_login_redirects_to_discord_with_identify_only()
     {
-        var response = await NoRedirect(Factory(configured: true)).GetAsync("/auth/login/discord");
+        var response = await NoRedirect(Factory(configured: true)).GetAsync("/auth/login/discord?kabul=1");
 
         var location = Uri.UnescapeDataString(response.Headers.Location!.ToString());
         Assert.StartsWith("https://discord.com/", location);
@@ -100,6 +100,19 @@ public sealed class ExternalLoginTests : IDisposable
         var without = await NoRedirect(Factory(configured: false)).GetStringAsync("/giris");
         Assert.DoesNotContain("Google ile giriş", without);
         Assert.Contains("Giriş henüz yapılandırılmadı", without);
+    }
+
+    [Fact]
+    public async Task Login_requires_ticking_the_terms_box_first()
+    {
+        var response = await NoRedirect(Factory(configured: true)).GetAsync("/auth/login/google?returnUrl=%2Filan%2F5");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/giris?hata=kabul&returnUrl=%2Filan%2F5", response.Headers.Location!.ToString());
+
+        var page = await NoRedirect(Factory(configured: true)).GetStringAsync("/giris");
+        Assert.Contains("name=\"kabul\"", page);
+        Assert.Contains("16 yaşından büyüğüm", page);
     }
 
     [Fact]

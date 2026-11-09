@@ -112,6 +112,9 @@ public sealed class UserAccount
 
     public DateTime CreatedAtUtc { get; set; }
 
+    /// <summary>When the user ticked "I accept the terms and privacy notice, I am 16+" (first time).</summary>
+    public DateTime? TermsAcceptedAtUtc { get; set; }
+
     public ulong UserId => (ulong)Id;
 }
 

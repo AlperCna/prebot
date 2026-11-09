@@ -85,6 +85,9 @@ public static class ExternalLogin
             ?? "Oyuncu";
         var account = await accounts.GetOrCreateAsync(provider, key, AccountService.CleanName(name) is { Length: >= 2 } n ? n : "Oyuncu");
 
+        // An external login can only start after ticking "I accept" on the login page (see /auth/login).
+        await accounts.MarkTermsAcceptedAsync(account.UserId);
+
         await http.SignOutAsync(Scheme);
         await AuthEndpoints.SignInAsync(http, account.UserId, account.DisplayName, provider);
         return Results.LocalRedirect(AuthEndpoints.SafeReturnUrl(returnUrl));

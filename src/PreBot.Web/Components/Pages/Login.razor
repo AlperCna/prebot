@@ -14,6 +14,7 @@
             {
                 "isim" => "İsim en az 2 karakter olmalı.",
                 "iptal" => "Giriş iptal edildi ya da tamamlanamadı. Tekrar dene.",
+                "kabul" => "Devam etmek için kutucuğu işaretlemelisin.",
                 _ => "Giriş tamamlanamadı. Tekrar dene.",
             })
         </div>
@@ -21,19 +22,27 @@
 
     @if (Providers.All.Count > 0)
     {
-        <div class="d-grid gap-2">
+        <form method="get" data-enhance="false" class="d-grid gap-2">
+            <input type="hidden" name="returnUrl" value="@(ReturnUrl ?? "/havuz")" />
+            <label class="form-check small mb-2">
+                <input class="form-check-input" type="checkbox" name="kabul" value="1" required />
+                <span class="form-check-label">
+                    <a href="/gizlilik" target="_blank">Aydınlatma metnini</a> okudum,
+                    <a href="/kosullar" target="_blank">Kullanım Koşulları</a>'nı kabul ediyorum ve 16 yaşından büyüğüm.
+                </span>
+            </label>
             @foreach (var p in Providers.All)
             {
-                <a class="btn @(p.Name == "google" ? "btn-light" : "btn-outline-light") btn-lg" data-enhance-nav="false"
-                   href="/auth/login/@p.Name?returnUrl=@Uri.EscapeDataString(ReturnUrl ?? "/havuz")">
+                <button type="submit" formaction="/auth/login/@p.Name"
+                        class="btn @(p.Name == "google" ? "btn-light" : "btn-outline-light") btn-lg">
                     @(p.Name == "google" ? "🔵 " : "💬 ")@p.Label
-                </a>
+                </button>
                 @if (p.Hint is not null)
                 {
                     <div class="text-dim small text-center mt-n1">@p.Hint</div>
                 }
             }
-        </div>
+        </form>
         <p class="text-dim small mt-3 mb-0">
             Yalnızca hesap kimliğini ve görünen adını alırız; e-posta adresini almayız. <a href="/gizlilik">Gizlilik</a>
         </p>

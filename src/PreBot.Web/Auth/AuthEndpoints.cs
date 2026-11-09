@@ -36,12 +36,18 @@ public static class AuthEndpoints
         }
 
         // Login with Google / Discord: send the user to the provider...
-        app.MapGet("/auth/login/{provider}", (string provider, string? returnUrl, ExternalProviders providers) =>
+        app.MapGet("/auth/login/{provider}", (string provider, string? returnUrl, string? kabul, ExternalProviders providers) =>
         {
             var p = providers.Find(provider);
             if (p is null)
             {
                 return Results.NotFound();
+            }
+
+            // The login page asks to accept the terms and privacy notice (and confirm 16+) first.
+            if (kabul != "1")
+            {
+                return Results.Redirect($"/giris?hata=kabul&returnUrl={Uri.EscapeDataString(SafeReturnUrl(returnUrl))}");
             }
 
             var properties = new AuthenticationProperties
