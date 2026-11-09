@@ -106,12 +106,16 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
          Choice("Platin", "Platinum"), Choice("Zümrüt", "Emerald"), Choice("Elmas", "Diamond"), Choice("Master+", "MasterPlus")]
         string maxRank = "Diamond",
         [Summary("not", "Kısa not, ör. 'mikrofon şart, eğlencesine'")]
-        string? note = null)
+        string? note = null,
+        [Summary("lobi", "Oyunda özel lobi de açacak mısın? Bildirimde lobi adı yazar")]
+        [Choice("Hayır", "yok"), Choice("Evet, herkese açık", "acik"), Choice("Evet, şifreli", "sifreli")]
+        string lobby = "yok")
     {
         await DeferAsync(ephemeral: true);
         var me = await MeAsync();
         var result = await pool.CreateListingAsync(
-            me, Enum.Parse<Role>(role), Enum.Parse<Rank>(minRank), Enum.Parse<Rank>(maxRank), slots, note, Context.Channel.Id);
+            me, Enum.Parse<Role>(role), Enum.Parse<Rank>(minRank), Enum.Parse<Rank>(maxRank), slots, note,
+            withLobby: lobby != "yok", lobbyLocked: lobby == "sifreli", announceChannelId: Context.Channel.Id);
 
         if (result.RetryAfter is { } wait)
         {
@@ -130,8 +134,13 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
         var poolText = result.PotentialMatches == 0
             ? "Şu an havuzda uygun kimse yok; ilan açık kaldıkça yeni gelenlere haber vereceğim."
             : $"Havuzda **{result.PotentialMatches}** uygun kişi var, en uygunlardan başlayarak haber veriyorum (sitede push, Discord'da DM).";
+        var lobbyText = result.Listing.LobbyCode is { } code
+            ? $"\n🎮 Şimdi oyunda **Oyna → Özel Oyun → Oluştur** ile lobiyi aç: adı **{Lobby.Name(result.Listing.Role, code)}**" +
+              (result.Listing.LobbyLocked ? $", şifresi **{code}**." : ".") +
+              " Lobiden biri gelirse ilan sayfasında **Lobiden biri geldi**'ye bas."
+            : string.Empty;
         await FollowupAsync(
-            $"📢 İlanın açıldı ve bu kanalda duyuruldu. {poolText}\nBiri katılınca sana DM ile haber vereceğim. " +
+            $"📢 İlanın açıldı ve bu kanalda duyuruldu. {poolText}{lobbyText}\nBiri katılınca sana DM ile haber vereceğim. " +
             $"İlanı yönetmek (kapatmak, gelmeyeni çıkarmak) için: {pool.ListingUrl(result.Listing.Id)}{tip}",
             ephemeral: true);
     }

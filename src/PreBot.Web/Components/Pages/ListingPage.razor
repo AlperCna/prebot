@@ -92,6 +92,32 @@
         }
     }
 
+    @if (l.LobbyCode is { } lobbyCode && l.Status == ListingStatus.Open)
+    {
+        var lobbyName = Lobby.Name(l.Role, lobbyCode);
+        @if (isHost)
+        {
+            <div class="lobby-box mt-3">
+                <div class="fw-semibold mb-1">🎮 Oyunda özel lobini aç</div>
+                <div class="small text-dim mb-2">Oyna → Özel Oyun → Oluştur. Bildirim alan ve o an oyunda olan biri lobine direkt girer.</div>
+                <div class="d-flex flex-wrap gap-2 align-items-center small">
+                    Lobi adı: <button type="button" class="rank-chip riot-copy ms-0" data-copy="@lobbyName">@lobbyName <span class="copy-hint">kopyala</span></button>
+                    @if (l.LobbyLocked)
+                    {
+                        <span>Şifre: <button type="button" class="rank-chip riot-copy ms-0" data-copy="@lobbyCode">@lobbyCode <span class="copy-hint">kopyala</span></button></span>
+                    }
+                </div>
+                <button class="btn btn-sm btn-outline-light mt-2" disabled="@(_busy || !Ready)" @onclick="FilledViaLobbyAsync">✓ Lobiden biri geldi, ilanı kapat</button>
+            </div>
+        }
+        else if (!insider)
+        {
+            <div class="lobby-box mt-3 small">
+                🎮 Şu an oyundaysan: <strong>Özel oyuna katıl</strong> → <strong>@lobbyName</strong>@(l.LobbyLocked ? $" (şifre {lobbyCode})" : "")
+            </div>
+        }
+    }
+
     @if (isHost && _view.ActiveSlots.Count > 0)
     {
         <div class="alert alert-info small mt-3 mb-0">
@@ -259,6 +285,9 @@
         (await Actions.ReportNoShowAsync(Id, UserId)).Result == HostActionResult.Done
             ? null
             : "Çıkarılacak kimse yok.");
+
+    private Task FilledViaLobbyAsync() => RunAsync(async () =>
+        (await Actions.MarkFilledViaLobbyAsync(Id, UserId)).Result == HostActionResult.Done ? null : "İlan zaten kapalı.");
 
     private Task CancelAsync() => RunAsync(async () =>
         (await Actions.CancelAsync(Id, UserId)).Result == HostActionResult.Done ? null : "İlan zaten kapalı.");

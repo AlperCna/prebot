@@ -36,6 +36,9 @@ public enum MetricKind
     SeatReleased,
     ListingCancelled,
     ListingExpired,
+
+    /// <summary>The host found someone through the custom game lobby (outside PreBot's seat claiming).</summary>
+    FilledViaLobby,
 }
 
 public enum SeatReleaseReason

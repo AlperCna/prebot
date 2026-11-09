@@ -47,6 +47,13 @@ public sealed class JoinTokenTests
     }
 
     [Fact]
+    public void Notification_tells_players_in_the_client_which_lobby_to_join()
+    {
+        var push = PushSender.ForListing(7, Role.Support, Rank.Iron, Rank.Diamond, 1, null, Lobby.Hint(Role.Support, "4821", false));
+        Assert.Contains("Özel oyuna katıl → PREBOT DESTEK 4821", push.Body);
+    }
+
+    [Fact]
     public void One_missing_seat_says_four_players_are_waiting()
     {
         Assert.StartsWith("4 kişi seni bekliyor", PushSender.ForListing(7, Role.Mid, Rank.Iron, Rank.Diamond, 1).Body);

@@ -56,6 +56,17 @@
             Flex'te Elmas ve altında rank sınırı yok. Aralığı daraltırsan daha az kişiye haber gider.
         </div>
         <div class="col-12">
+            <label class="form-label">Oyunda özel lobi de açacak mısın?</label>
+            <select class="form-select" @bind="_lobby">
+                <option value="acik">Evet, herkese açık (oyunda lobi listesine bakanlar da girebilsin)</option>
+                <option value="sifreli">Evet, şifreli (yalnızca PreBot'tan haber alanlar girebilsin)</option>
+                <option value="yok">Hayır, yalnızca PreBot</option>
+            </select>
+            <div class="form-text text-dim">
+                Bildirimde lobinin adı yazar; o an oyunda olan biri lobine direkt girer. İki yol aynı anda çalışır.
+            </div>
+        </div>
+        <div class="col-12">
             <label class="form-label">Not (isteğe bağlı)</label>
             <input class="form-control" maxlength="200" placeholder="ör. mikrofon şart, eğlencesine oynuyoruz" @bind="_note" />
         </div>
@@ -91,6 +102,7 @@
     private Rank _max = Rank.Diamond;
     private int _slots = 1;
     private string? _note;
+    private string _lobby = "acik";
     private string? _riotId;
     private bool _busy;
     private string? _message;
@@ -107,7 +119,8 @@
     {
         _busy = true;
         _message = null;
-        var result = await Actions.CreateListingAsync(UserId, _role, _min, _max, _slots, _note);
+        var result = await Actions.CreateListingAsync(
+            UserId, _role, _min, _max, _slots, _note, withLobby: _lobby != "yok", lobbyLocked: _lobby == "sifreli");
         _busy = false;
 
         if (result.RetryAfter is { } wait)

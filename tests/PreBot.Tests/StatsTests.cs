@@ -109,6 +109,36 @@ public sealed class StatsTests : IDisposable
     }
 
     [Fact]
+    public async Task Player_found_through_the_custom_lobby_counts_as_filled_and_stops_the_listing()
+    {
+        var id = (await _t.Service.CreateListingAsync(Web, Web, 1, Role.Support, Rank.Iron, Rank.Diamond, 1, null, lobbyCode: "4821", lobbyLocked: true)).Listing!.Id;
+        _t.Time.Advance(TimeSpan.FromMinutes(4));
+
+        Assert.Equal(HostActionResult.NotHost, (await _t.Service.MarkFilledViaLobbyAsync(id, 99)).Result);
+        Assert.Equal(HostActionResult.Done, (await _t.Service.MarkFilledViaLobbyAsync(id, 1)).Result);
+        Assert.Equal(HostActionResult.NothingToDo, (await _t.Service.MarkFilledViaLobbyAsync(id, 1)).Result);
+
+        await using var db = _t.NewContext();
+        var listing = db.Listings.Single(l => l.Id == id);
+        Assert.Equal(ListingStatus.Filled, listing.Status);
+        Assert.Null(listing.NextWaveAtUtc);
+        Assert.Equal(("4821", true), (listing.LobbyCode, listing.LobbyLocked));
+        var s = await _stats.GetAsync(Web, TimeSpan.FromDays(1));
+        Assert.Equal(1, s.ListingsFilled);
+        Assert.Equal(4, s.MedianMinutesToFill!.Value, 3);
+    }
+
+    [Fact]
+    public void Lobby_name_is_plain_ascii_and_notification_line_mentions_the_password_only_when_locked()
+    {
+        Assert.Equal("PREBOT DESTEK 4821", Lobby.Name(Role.Support, "4821"));
+        Assert.Equal("PREBOT ORMAN 1000", Lobby.Name(Role.Jungle, "1000"));
+        Assert.EndsWith("PREBOT ORTA 1234 (şifre 1234)", Lobby.Hint(Role.Mid, "1234", locked: true));
+        Assert.EndsWith("PREBOT ORTA 1234", Lobby.Hint(Role.Mid, "1234", locked: false));
+        Assert.InRange(int.Parse(Lobby.NewCode()), 1000, 9999);
+    }
+
+    [Fact]
     public async Task Old_listings_fall_out_of_the_window_and_other_communities_are_ignored()
     {
         await OpenAsync(1);

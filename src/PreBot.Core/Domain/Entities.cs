@@ -56,6 +56,12 @@ public sealed class Listing
     public DateTime CreatedAtUtc { get; set; }
     public DateTime ExpiresAtUtc { get; set; }
 
+    /// <summary>Code of the custom game lobby the host also opens in the client (null = no lobby). See <see cref="Lobby"/>.</summary>
+    public string? LobbyCode { get; set; }
+
+    /// <summary>The lobby has a password (the code), so only players PreBot told about it can enter.</summary>
+    public bool LobbyLocked { get; set; }
+
     /// <summary>How many notification waves have been sent (keeps counting after Matcher.MaxWaves).</summary>
     public int WavesSent { get; set; }
 

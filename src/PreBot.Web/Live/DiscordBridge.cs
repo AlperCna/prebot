@@ -66,9 +66,10 @@ public sealed class DiscordDirectMessenger(
     {
         var embed = new EmbedBuilder()
             .WithTitle($"📣 {TurkishNames.Of(alert.Role)} lazım!")
-            .WithDescription(alert.SlotsMissing == 1
+            .WithDescription((alert.SlotsMissing == 1
                 ? $"4 kişi seni bekliyor · {TurkishNames.RankRange(alert.MinRank, alert.MaxRank)}. İlk basan alır."
                 : $"{TurkishNames.RankRange(alert.MinRank, alert.MaxRank)} · {alert.SlotsMissing} kişi eksik. İlk basan alır.")
+                + (alert.LobbyHint is null ? "" : $"\n🎮 {alert.LobbyHint}"))
             .WithColor(new Color(0xC8AA6E))
             .WithFooter(ListingRenderer.Disclaimer)
             .Build();
@@ -163,8 +164,8 @@ public sealed class WebPoolForDiscord(
     public Task<PoolSummary> GetPoolSummaryAsync() => pre.GetPoolSummaryAsync(Web);
 
     public Task<CreateListingResult> CreateListingAsync(
-        ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note, ulong announceChannelId) =>
-        actions.CreateListingAsync(hostUserId, role, min, max, slots, note, announceChannelId);
+        ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note, bool withLobby, bool lobbyLocked, ulong announceChannelId) =>
+        actions.CreateListingAsync(hostUserId, role, min, max, slots, note, withLobby, lobbyLocked, announceChannelId);
 
     public Task<ClaimOutcome> ClaimAsync(int listingId, ulong userId) => actions.ClaimAsync(listingId, userId);
 

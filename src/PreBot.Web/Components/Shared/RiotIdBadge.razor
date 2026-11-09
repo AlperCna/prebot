@@ -1,9 +1,8 @@
-@inject IJSRuntime JS
-
+@* Copying happens in the browser during the tap (see prebot.js [data-copy]): iPhone blocks clipboard writes after a server round trip. *@
 @if (RiotId is not null)
 {
-    <button type="button" class="rank-chip riot-copy" title="Kopyala: oyunda Arkadaş ekle'ye yapıştır" @onclick="CopyAsync">
-        🎮 @RiotId <span class="copy-hint">@(_copied ? "✓ kopyalandı" : "kopyala")</span>
+    <button type="button" class="rank-chip riot-copy" title="Kopyala: oyunda Arkadaş ekle'ye yapıştır" data-copy="@RiotId">
+        🎮 @RiotId <span class="copy-hint">kopyala</span>
     </button>
 }
 else
@@ -14,18 +13,4 @@ else
 @code {
     [Parameter] public string? RiotId { get; set; }
     [Parameter] public string Hint { get; set; } = "Riot ID kayıtlı değil.";
-
-    private bool _copied;
-
-    private async Task CopyAsync()
-    {
-        try
-        {
-            _copied = await JS.InvokeAsync<bool>("prebot.copy", RiotId);
-        }
-        catch (JSException)
-        {
-            _copied = false;
-        }
-    }
 }

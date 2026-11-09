@@ -16,7 +16,8 @@ public sealed record FeedListing(
     string HostName,
     DateTime ExpiresAtUtc,
     string JoinUrl,
-    ListingStatus Status = ListingStatus.Open);
+    ListingStatus Status = ListingStatus.Open,
+    string? LobbyHint = null);
 
 /// <summary>Where an announcement was posted.</summary>
 public sealed record PostedAnnouncement(ulong ChannelId, ulong MessageId);
@@ -53,6 +54,10 @@ public sealed class DiscordFeed(DiscordSocketClient client, IOptions<DiscordOpti
             var expires = new DateTimeOffset(DateTime.SpecifyKind(l.ExpiresAtUtc, DateTimeKind.Utc)).ToUnixTimeSeconds();
             embed.AddField("Eksik", $"{l.SlotsMissing} kişi", inline: true)
                 .AddField("Kapanış", $"<t:{expires}:R>", inline: true);
+            if (l.LobbyHint is not null)
+            {
+                embed.AddField("🎮 Özel lobi", l.LobbyHint);
+            }
         }
 
         embed.AddField("İlan sahibi", l.HostName, inline: true)

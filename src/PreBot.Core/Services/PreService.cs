@@ -103,6 +103,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         Rank maxRank,
         int slotsNeeded,
         string? note,
+        string? lobbyCode = null,
+        bool lobbyLocked = false,
         CancellationToken ct = default)
     {
         if (minRank > maxRank)
@@ -146,6 +148,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             SlotsNeeded = slotsNeeded,
             Status = ListingStatus.Open,
             Note = note,
+            LobbyCode = lobbyCode,
+            LobbyLocked = lobbyCode is not null && lobbyLocked,
             CreatedAtUtc = now,
             ExpiresAtUtc = now.AddMinutes(options.ListingMinutes),
             NextWaveAtUtc = now,
@@ -354,6 +358,40 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
         await tx.CommitAsync(ct);
         return new HostActionOutcome(HostActionResult.Done, latest);
+    }
+
+    /// <summary>
+    /// The host got their player through the custom game lobby: the listing is done (counted as filled)
+    /// and stops notifying people.
+    /// </summary>
+    public async Task<HostActionOutcome> MarkFilledViaLobbyAsync(int listingId, ulong hostUserId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        var listing = await db.Listings.AsNoTracking().SingleOrDefaultAsync(l => l.Id == listingId, ct);
+        if (listing is null)
+        {
+            return new HostActionOutcome(HostActionResult.NotFound);
+        }
+
+        if (listing.HostUserId != hostUserId)
+        {
+            return new HostActionOutcome(HostActionResult.NotHost);
+        }
+
+        var done = await db.Listings
+            .Where(l => l.Id == listingId && l.Status == ListingStatus.Open)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(l => l.Status, ListingStatus.Filled)
+                .SetProperty(l => l.NextWaveAtUtc, (DateTime?)null), ct);
+        if (done == 0)
+        {
+            return new HostActionOutcome(HostActionResult.NothingToDo);
+        }
+
+        Record(db, MetricKind.FilledViaLobby, listing.GuildId, listingId, now, value: (int)(now - listing.CreatedAtUtc).TotalSeconds);
+        await db.SaveChangesAsync(ct);
+        return new HostActionOutcome(HostActionResult.Done);
     }
 
     public async Task<HostActionOutcome> CancelAsync(int listingId, ulong hostUserId, CancellationToken ct = default)

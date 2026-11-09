@@ -41,16 +41,20 @@ public sealed class PoolActions(
         live.PublishChanged();
     }
 
+    /// <param name="withLobby">The host also opens a custom game lobby in the client; notifications point to it.</param>
+    /// <param name="lobbyLocked">Give that lobby a password, so only players PreBot told can enter.</param>
     /// <param name="announceChannelId">Discord channel where /pre-lazim was used: the listing is announced there too.</param>
     public async Task<CreateListingResult> CreateListingAsync(
-        ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note, ulong? announceChannelId = null)
+        ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note,
+        bool withLobby = false, bool lobbyLocked = false, ulong? announceChannelId = null)
     {
         if (!limiter.TryAcquire(LimitedAction.CreateListing, hostUserId, out var retryAfter))
         {
             return new CreateListingResult(null, null, 0, retryAfter);
         }
 
-        var result = await pre.CreateListingAsync(Web, Web, hostUserId, role, min, max, slots, note);
+        var result = await pre.CreateListingAsync(
+            Web, Web, hostUserId, role, min, max, slots, note, withLobby ? Lobby.NewCode() : null, lobbyLocked);
         if (result.Listing is not null)
         {
             live.PublishChanged();
@@ -135,7 +139,20 @@ public sealed class PoolActions(
         }
 
         var l = view.Listing;
-        return await CreateListingAsync(hostUserId, l.Role, l.MinRank, l.MaxRank, l.SlotsNeeded, l.Note);
+        return await CreateListingAsync(hostUserId, l.Role, l.MinRank, l.MaxRank, l.SlotsNeeded, l.Note, l.LobbyCode is not null, l.LobbyLocked);
+    }
+
+    /// <summary>The host got their player from the custom game lobby: close the listing as filled.</summary>
+    public async Task<HostActionOutcome> MarkFilledViaLobbyAsync(int listingId, ulong hostUserId)
+    {
+        var outcome = await pre.MarkFilledViaLobbyAsync(listingId, hostUserId);
+        if (outcome.Result == HostActionResult.Done)
+        {
+            live.PublishChanged();
+            Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
+        }
+
+        return outcome;
     }
 
     private void Background(string what, Func<Task> work) => _ = Task.Run(async () =>

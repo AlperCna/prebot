@@ -89,7 +89,7 @@ public sealed class SinglePoolTests : IDisposable
         await actions.SetAvailableAsync(siteUser, Role.Support, Rank.Gold, TimeSpan.FromHours(1));
         await pool.SetAvailableAsync(discordUser, Role.Fill, Rank.Silver, TimeSpan.FromHours(1));
 
-        var result = await pool.CreateListingAsync(host, Role.Support, Rank.Iron, Rank.Diamond, 1, null, announceChannelId: 42);
+        var result = await pool.CreateListingAsync(host, Role.Support, Rank.Iron, Rank.Diamond, 1, null, withLobby: true, lobbyLocked: false, announceChannelId: 42);
 
         Assert.NotNull(result.Listing);
         Assert.Equal(Communities.Web, result.Listing!.GuildId); // a website listing, visible on the site
@@ -116,7 +116,7 @@ public sealed class SinglePoolTests : IDisposable
         var pool = Get<IWebPool>();
         var host = await pool.AccountForDiscordUserAsync(1001, "Host");
         var late = await pool.AccountForDiscordUserAsync(1002, "Geç Gelen");
-        var listing = (await pool.CreateListingAsync(host, Role.Mid, Rank.Iron, Rank.Diamond, 1, null, 42)).Listing!;
+        var listing = (await pool.CreateListingAsync(host, Role.Mid, Rank.Iron, Rank.Diamond, 1, null, false, false, 42)).Listing!;
         Assert.Empty(_dm.Listings); // nobody in the pool yet
 
         await pool.SetAvailableAsync(late, Role.Mid, Rank.Gold, TimeSpan.FromHours(1));
@@ -133,8 +133,8 @@ public sealed class SinglePoolTests : IDisposable
         var b = await pool.AccountForDiscordUserAsync(2002, "B");
         var player = await pool.AccountForDiscordUserAsync(2003, "Oyuncu");
         await pool.SetRiotIdAsync(player, "Oyuncu#TR1");
-        var first = (await pool.CreateListingAsync(a, Role.Mid, Rank.Iron, Rank.Diamond, 2, null, 42)).Listing!;
-        var second = (await pool.CreateListingAsync(b, Role.Top, Rank.Iron, Rank.Diamond, 1, null, 42)).Listing!;
+        var first = (await pool.CreateListingAsync(a, Role.Mid, Rank.Iron, Rank.Diamond, 2, null, false, false, 42)).Listing!;
+        var second = (await pool.CreateListingAsync(b, Role.Top, Rank.Iron, Rank.Diamond, 1, null, false, false, 42)).Listing!;
 
         Assert.Equal(ClaimResult.Claimed, (await pool.ClaimAsync(first.Id, player)).Result);
         Assert.Equal(ClaimResult.HoldsOtherSeat, (await pool.ClaimAsync(second.Id, player)).Result);

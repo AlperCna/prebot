@@ -283,3 +283,11 @@ h1:focus {
     color: var(--pb-text-dim);
     font-size: 0.85rem;
 }
+
+/* ---------- Custom game lobby ---------- */
+.lobby-box {
+    border: 1px dashed var(--pb-gold);
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    background: rgba(200, 170, 110, 0.06);
+}

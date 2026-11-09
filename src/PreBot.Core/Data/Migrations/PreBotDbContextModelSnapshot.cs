@@ -124,6 +124,12 @@ namespace PreBot.Core.Data.Migrations
                     b.Property<long>("HostUserId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("LobbyCode")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("LobbyLocked")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("MaxRank")
                         .HasColumnType("INTEGER");
 

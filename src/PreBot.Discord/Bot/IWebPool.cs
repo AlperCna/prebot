@@ -22,7 +22,7 @@ public interface IWebPool
 
     /// <summary>Opens a listing, notifies the pool and announces it (also in <paramref name="announceChannelId"/>).</summary>
     Task<CreateListingResult> CreateListingAsync(
-        ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note, ulong announceChannelId);
+        ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note, bool withLobby, bool lobbyLocked, ulong announceChannelId);
 
     Task<ClaimOutcome> ClaimAsync(int listingId, ulong userId);
 

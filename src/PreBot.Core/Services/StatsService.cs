@@ -50,7 +50,8 @@ public sealed class StatsService(IDbContextFactory<PreBotDbContext> dbFactory, T
             var listing = byListing[id].ToList();
             // A listing that filled once counts as filled, even if the host closed it afterwards
             // (they were playing) or a no-show reopened it.
-            var firstFill = listing.Where(e => e.Kind == MetricKind.ListingFilled).Select(e => e.Value ?? 0).DefaultIfEmpty(-1).Min();
+            var firstFill = listing.Where(e => e.Kind is MetricKind.ListingFilled or MetricKind.FilledViaLobby)
+                .Select(e => e.Value ?? 0).DefaultIfEmpty(-1).Min();
             if (firstFill >= 0)
             {
                 filled.Add(firstFill / 60.0);

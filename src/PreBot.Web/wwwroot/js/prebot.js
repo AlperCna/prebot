@@ -161,6 +161,18 @@ document.addEventListener('click', (event) => {
         window.prebot.push._pending = Notification.requestPermission();
     }
 
+    // Copy buttons (Riot ID, lobby name): copy inside the tap, show a short confirmation.
+    const copy = event.target.closest('[data-copy]');
+    if (copy) {
+        window.prebot.copy(copy.dataset.copy).then((ok) => {
+            const hint = copy.querySelector('.copy-hint');
+            if (ok && hint) {
+                hint.textContent = '✓ kopyalandı';
+                setTimeout(() => { hint.textContent = 'kopyala'; }, 2500);
+            }
+        });
+    }
+
     // "Paylaş": open the share sheet directly from the tap (no server round trip in between).
     const share = event.target.closest('[data-share-url]');
     if (share) {

@@ -69,7 +69,7 @@ public sealed class CommandDefinitionTests : IDisposable
         public Task<PreBot.Core.Domain.Availability> SetAvailableAsync(ulong userId, PreBot.Core.Domain.Role role, PreBot.Core.Domain.Rank rank, TimeSpan duration) => throw new NotSupportedException();
         public Task ClearAvailableAsync(ulong userId) => throw new NotSupportedException();
         public Task<PreBot.Core.Services.PoolSummary> GetPoolSummaryAsync() => throw new NotSupportedException();
-        public Task<PreBot.Core.Services.CreateListingResult> CreateListingAsync(ulong hostUserId, PreBot.Core.Domain.Role role, PreBot.Core.Domain.Rank min, PreBot.Core.Domain.Rank max, int slots, string? note, ulong announceChannelId) => throw new NotSupportedException();
+        public Task<PreBot.Core.Services.CreateListingResult> CreateListingAsync(ulong hostUserId, PreBot.Core.Domain.Role role, PreBot.Core.Domain.Rank min, PreBot.Core.Domain.Rank max, int slots, string? note, bool withLobby, bool lobbyLocked, ulong announceChannelId) => throw new NotSupportedException();
         public Task<PreBot.Core.Services.ClaimOutcome> ClaimAsync(int listingId, ulong userId) => throw new NotSupportedException();
         public Task<PreBot.Core.Domain.LeaveResult> LeaveAsync(int listingId, ulong userId) => throw new NotSupportedException();
         public Task<PreBot.Core.Services.ListingView?> GetListingAsync(int listingId) => throw new NotSupportedException();

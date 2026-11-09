@@ -14,7 +14,8 @@ public sealed record WaveAlert(
     Rank MinRank,
     Rank MaxRank,
     int SlotsMissing,
-    IReadOnlyList<ulong> UserIds);
+    IReadOnlyList<ulong> UserIds,
+    string? LobbyHint = null);
 
 /// <summary>
 /// A way to reach players: an in-page alert, a phone push notification, a Discord mention...
@@ -49,7 +50,8 @@ public sealed class WaveDispatcher(PreService pre, IEnumerable<INotificationChan
         var l = view.Listing;
         var alert = new WaveAlert(
             l.Id, wave.Wave, l.GuildId, l.HostUserId, l.Role, l.MinRank, l.MaxRank,
-            l.SlotsNeeded - l.SlotsFilled, wave.UserIds);
+            l.SlotsNeeded - l.SlotsFilled, wave.UserIds,
+            l.LobbyCode is { } code ? Lobby.Hint(l.Role, code, l.LobbyLocked) : null);
 
         foreach (var channel in channels)
         {

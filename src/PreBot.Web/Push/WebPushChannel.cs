@@ -17,7 +17,7 @@ public sealed class WebPushChannel(PushSender sender, JoinTokens tokens) : INoti
             alert.UserIds,
             userId => PushSender.ForListing(
                 alert.ListingId, alert.Role, alert.MinRank, alert.MaxRank, alert.SlotsMissing,
-                tokens.Create(alert.ListingId, userId)),
+                tokens.Create(alert.ListingId, userId), alert.LobbyHint),
             timeToLive: TimeSpan.FromSeconds(120),
             topic: $"listing{alert.ListingId}",
             ct);
