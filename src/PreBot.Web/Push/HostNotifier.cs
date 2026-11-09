@@ -1,5 +1,6 @@
 using PreBot.Core.Domain;
 using PreBot.Core.Services;
+using PreBot.Web.Live;
 
 namespace PreBot.Web.Push;
 
@@ -7,9 +8,21 @@ namespace PreBot.Web.Push;
 /// Tells the listing's host what happened, on their phone/PC even when the site is closed — the host is
 /// usually in the LoL client by then. Without this they would not see who joined or their Riot ID.
 /// </summary>
-public sealed class HostNotifier(PreService pre, AccountService accounts, PushSender push)
+public sealed class HostNotifier(PreService pre, AccountService accounts, PushSender push, IDirectMessenger direct, IConfiguration config)
 {
     private static readonly TimeSpan JoinTtl = TimeSpan.FromMinutes(10);
+
+    /// <summary>Push to the host's devices; a host who only uses Discord (no push device) gets a DM instead.</summary>
+    private async Task NotifyHostAsync(ulong hostUserId, PushPayload payload, TimeSpan ttl, CancellationToken ct)
+    {
+        await push.SendAsync([hostUserId], payload, ttl, null, ct);
+        var reachable = await direct.ReachableWithoutPushAsync([hostUserId], ct);
+        if (reachable.TryGetValue(hostUserId, out var discordId))
+        {
+            var url = $"{(config["PublicUrl"] ?? "http://localhost:5215").TrimEnd('/')}{payload.Url}";
+            await direct.SendTextAsync(discordId, payload.Title, payload.Body, url, ct);
+        }
+    }
 
     public async Task JoinedAsync(int listingId, ulong joinerUserId, CancellationToken ct = default)
     {
@@ -27,7 +40,7 @@ public sealed class HostNotifier(PreService pre, AccountService accounts, PushSe
             ? "Riot ID'sini kaydetmemiş; ilan sayfasından birlikte çözün."
             : $"Riot ID: {riotId} · Oyunda Arkadaş ekle → lobine davet et.";
 
-        await push.SendAsync([l.HostUserId], new PushPayload(title, body, $"/ilan/{l.Id}", null, $"host-{l.Id}"), JoinTtl, null, ct);
+        await NotifyHostAsync(l.HostUserId, new PushPayload(title, body, $"/ilan/{l.Id}", null, $"host-{l.Id}"), JoinTtl, ct);
     }
 
     public async Task LeftAsync(int listingId, ulong leaverUserId, CancellationToken ct = default)
@@ -39,11 +52,11 @@ public sealed class HostNotifier(PreService pre, AccountService accounts, PushSe
         }
 
         var name = (await accounts.GetDisplayNamesAsync([leaverUserId], ct)).GetValueOrDefault(leaverUserId, "Katılan oyuncu");
-        await push.SendAsync(
-            [view.Listing.HostUserId],
+        await NotifyHostAsync(
+            view.Listing.HostUserId,
             new PushPayload($"😕 {name} vazgeçti", "İlan yeniden açıldı, uygun oyunculara tekrar haber veriyorum.",
                 $"/ilan/{listingId}", null, $"host-{listingId}"),
-            JoinTtl, null, ct);
+            JoinTtl, ct);
     }
 
     public async Task ExpiredAsync(int listingId, CancellationToken ct = default)
@@ -54,10 +67,10 @@ public sealed class HostNotifier(PreService pre, AccountService accounts, PushSe
             return;
         }
 
-        await push.SendAsync(
-            [view.Listing.HostUserId],
+        await NotifyHostAsync(
+            view.Listing.HostUserId,
             new PushPayload("⌛ İlanın süresi doldu", "Bu sefer kimse katılmadı. Tek dokunuşla tekrar açabilirsin.",
                 $"/ilan/{listingId}", null, $"host-{listingId}"),
-            TimeSpan.FromMinutes(30), null, ct);
+            TimeSpan.FromMinutes(30), ct);
     }
 }

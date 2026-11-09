@@ -23,9 +23,11 @@ public sealed class DiscordFeedTests : IDisposable
         Assert.Contains(embed.Fields, f => f.Name == "Eksik" && f.Value == "1 kişi");
         Assert.Contains(embed.Fields, f => f.Name == "Kapanış" && f.Value.StartsWith("<t:"));
 
-        var button = Assert.Single(components.Components.SelectMany(row => ((ActionRowComponent)row).Components).OfType<ButtonComponent>());
-        Assert.Equal(ButtonStyle.Link, button.Style);
-        Assert.Equal("https://prebot.example/ilan/42", button.Url);
+        var buttons = components.Components.SelectMany(row => ((ActionRowComponent)row).Components).OfType<ButtonComponent>().ToList();
+        Assert.Equal(WebPoolModule.JoinPrefix + "42", buttons[0].CustomId); // take the seat right from Discord
+        var link = buttons[1];
+        Assert.Equal(ButtonStyle.Link, link.Style);
+        Assert.Equal("https://prebot.example/ilan/42", link.Url);
     }
 
     [Theory]

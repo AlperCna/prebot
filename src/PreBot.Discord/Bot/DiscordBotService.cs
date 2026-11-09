@@ -1,4 +1,3 @@
-using System.Reflection;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
@@ -142,7 +141,18 @@ public sealed class DiscordBotService(
         }
 
         _modulesLoaded = true;
-        await interactions.AddModulesAsync(Assembly.GetExecutingAssembly(), services);
+
+        // Inside the website the commands use the site's single pool; the standalone bot keeps per-server pools.
+        // Both modules have the same command names, so exactly one of them is loaded.
+        if (services.GetService(typeof(IWebPool)) is not null)
+        {
+            await interactions.AddModuleAsync<WebPoolModule>(services);
+            logger.LogInformation("Discord commands use the website's pool (one pool for site and Discord)");
+        }
+        else
+        {
+            await interactions.AddModuleAsync<PreModule>(services);
+        }
 
         // Helps setup: which servers the bot is in, and the ids of text channels it can post to
         // (for Discord:FeedChannels). Server names and channel ids are not secret.

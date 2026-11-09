@@ -7,8 +7,8 @@ namespace PreBot.Web.Live;
 /// <summary>Somewhere a website listing is announced (beyond the website itself).</summary>
 public interface IListingFeed
 {
-    /// <summary>A new listing was opened.</summary>
-    Task PublishAsync(Listing listing, CancellationToken ct = default);
+    /// <summary>A new listing was opened. <paramref name="alsoChannelId"/>: also announce it there (Discord /pre-lazim).</summary>
+    Task PublishAsync(Listing listing, ulong? alsoChannelId = null, CancellationToken ct = default);
 
     /// <summary>A listing changed (filled, reopened, closed, expired): bring its announcements up to date.</summary>
     Task UpdateAsync(int listingId, CancellationToken ct = default);
@@ -17,12 +17,12 @@ public interface IListingFeed
 /// <summary>No announcements (the Discord bot is not configured).</summary>
 public sealed class NoListingFeed : IListingFeed
 {
-    public Task PublishAsync(Listing listing, CancellationToken ct = default) => Task.CompletedTask;
+    public Task PublishAsync(Listing listing, ulong? alsoChannelId = null, CancellationToken ct = default) => Task.CompletedTask;
 
     public Task UpdateAsync(int listingId, CancellationToken ct = default) => Task.CompletedTask;
 }
 
-/// <summary>Announces website listings in the configured Discord channels with a "Sitede katıl" link.</summary>
+/// <summary>Announces website listings in the configured Discord channels with a "Katıl" button and a site link.</summary>
 public sealed class DiscordListingFeed(
     DiscordFeed feed,
     PreService pre,
@@ -30,14 +30,14 @@ public sealed class DiscordListingFeed(
     AnnouncementStore announcements,
     IConfiguration config) : IListingFeed
 {
-    public async Task PublishAsync(Listing listing, CancellationToken ct = default)
+    public async Task PublishAsync(Listing listing, ulong? alsoChannelId = null, CancellationToken ct = default)
     {
-        if (!feed.Enabled)
+        if (!feed.Enabled && alsoChannelId is null)
         {
             return;
         }
 
-        var posted = await feed.PostAsync(await ToFeedListingAsync(listing, ct), ct);
+        var posted = await feed.PostAsync(await ToFeedListingAsync(listing, ct), alsoChannelId, ct);
         foreach (var p in posted)
         {
             await announcements.SaveAsync(listing.Id, p.ChannelId, p.MessageId, ct);

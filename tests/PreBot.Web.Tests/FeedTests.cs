@@ -68,7 +68,7 @@ public sealed class FeedTests : IDisposable
         private readonly TaskCompletionSource<Listing> _first = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public List<Listing> All { get; } = [];
 
-        public Task PublishAsync(Listing listing, CancellationToken ct = default)
+        public Task PublishAsync(Listing listing, ulong? alsoChannelId = null, CancellationToken ct = default)
         {
             lock (All)
             {

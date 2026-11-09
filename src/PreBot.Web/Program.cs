@@ -67,10 +67,17 @@ if (DiscordSetup.IsConfigured(builder.Configuration))
 {
     builder.Services.AddPreBotDiscord(builder.Configuration);
     builder.Services.AddSingleton<IListingFeed, DiscordListingFeed>();
+
+    // One pool for the site and Discord: slash commands use the site's pool and accounts, and players who
+    // joined through Discord (and have no push device) get notifications and host updates by DM.
+    builder.Services.AddSingleton<IWebPool, WebPoolForDiscord>();
+    builder.Services.AddSingleton<IDirectMessenger, DiscordDirectMessenger>();
+    builder.Services.AddSingleton<INotificationChannel, DiscordDmChannel>();
 }
 else
 {
     builder.Services.AddSingleton<IListingFeed, NoListingFeed>();
+    builder.Services.AddSingleton<IDirectMessenger, NoDirectMessenger>();
 }
 builder.Services.AddHostedService<PoolWorker>();
 

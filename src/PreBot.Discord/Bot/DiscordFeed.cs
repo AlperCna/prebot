@@ -22,8 +22,8 @@ public sealed record FeedListing(
 public sealed record PostedAnnouncement(ulong ChannelId, ulong MessageId);
 
 /// <summary>
-/// Announces website listings in chosen Discord channels with a link back to the site, so players who
-/// are still on Discord can find them. No pings: it is an announcement, not a notification wave.
+/// Announces website listings in chosen Discord channels, with a "Katıl" button (takes the seat right from
+/// Discord) and a link to the site. No pings: it is an announcement, not a notification wave.
 /// When the listing fills or closes, the same message is edited, so nobody clicks a dead link.
 /// </summary>
 public sealed class DiscordFeed(DiscordSocketClient client, IOptions<DiscordOptions> options, ILogger<DiscordFeed> logger)
@@ -61,23 +61,31 @@ public sealed class DiscordFeed(DiscordSocketClient client, IOptions<DiscordOpti
         var components = new ComponentBuilder();
         if (open)
         {
-            components.WithButton("Sitede katıl", url: l.JoinUrl, style: ButtonStyle.Link, emote: new Emoji("🎮"));
+            components.WithButton("Katıl", WebPoolModule.JoinPrefix + l.Id, ButtonStyle.Success, new Emoji("✋"));
+            components.WithButton("Sitede aç", url: l.JoinUrl, style: ButtonStyle.Link, emote: new Emoji("🎮"));
         }
 
         return (embed.Build(), components.Build());
     }
 
-    /// <summary>Posts the listing to every feed channel. Never throws; returns where it was posted.</summary>
-    public async Task<IReadOnlyList<PostedAnnouncement>> PostAsync(FeedListing listing, CancellationToken ct = default)
+    /// <summary>
+    /// Posts the listing to every feed channel, and to <paramref name="alsoChannelId"/> (where /pre-lazim was
+    /// used). Never throws; returns where it was posted.
+    /// </summary>
+    public async Task<IReadOnlyList<PostedAnnouncement>> PostAsync(FeedListing listing, ulong? alsoChannelId = null, CancellationToken ct = default)
     {
         var posted = new List<PostedAnnouncement>();
-        if (!Enabled || client.ConnectionState != ConnectionState.Connected)
+        var channels = options.Value.FeedChannelIds
+            .Concat(alsoChannelId is { } extra ? [extra] : [])
+            .Distinct()
+            .ToList();
+        if (channels.Count == 0 || client.ConnectionState != ConnectionState.Connected)
         {
             return posted;
         }
 
         var (embed, components) = Render(listing);
-        foreach (var channelId in options.Value.FeedChannelIds)
+        foreach (var channelId in channels)
         {
             try
             {

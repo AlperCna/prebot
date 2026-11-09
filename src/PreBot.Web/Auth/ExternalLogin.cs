@@ -26,6 +26,9 @@ public sealed class ExternalProviders(IReadOnlyList<ExternalProvider> all)
 public static class ExternalLogin
 {
     public const string Scheme = "External";
+
+    /// <summary>Provider name of Discord accounts; the Discord bot uses the same one, so both reach one account.</summary>
+    public const string DiscordProvider = "discord";
     public const string DiscordGlobalNameClaim = "urn:discord:user:global_name";
 
     public static ExternalProviders AddProviders(AuthenticationBuilder auth, IConfiguration config)
@@ -62,7 +65,7 @@ public static class ExternalLogin
                 o.ClaimActions.MapJsonKey(DiscordGlobalNameClaim, "global_name");
                 o.Events.OnRemoteFailure = Cancelled;
             });
-            providers.Add(new("discord", DiscordAuthenticationDefaults.AuthenticationScheme, "Discord ile giriş",
+            providers.Add(new(DiscordProvider, DiscordAuthenticationDefaults.AuthenticationScheme, "Discord ile giriş",
                 "Türkiye'de Discord erişime kapalı; VPN gerekebilir."));
         }
 

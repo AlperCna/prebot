@@ -14,12 +14,15 @@ public class DiscordFeedStatusTests
         c.Components.SelectMany(row => ((ActionRowComponent)row).Components).OfType<ButtonComponent>();
 
     [Fact]
-    public void Open_listing_has_the_join_link()
+    public void Open_listing_has_a_join_button_and_a_site_link()
     {
         var (embed, components) = DiscordFeed.Render(Listing(ListingStatus.Open));
 
         Assert.StartsWith("🌐", embed.Title);
-        Assert.Single(Buttons(components));
+        var buttons = Buttons(components).ToList();
+        Assert.Equal(2, buttons.Count);
+        Assert.Equal(WebPoolModule.JoinPrefix + "7", buttons[0].CustomId);
+        Assert.Equal("https://prebot.example/ilan/7", buttons[1].Url);
         Assert.Contains(embed.Fields, f => f.Name == "Kapanış");
     }
 

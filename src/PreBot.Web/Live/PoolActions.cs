@@ -34,7 +34,9 @@ public sealed class PoolActions(
         live.PublishChanged();
     }
 
-    public async Task<CreateListingResult> CreateListingAsync(ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note)
+    /// <param name="announceChannelId">Discord channel where /pre-lazim was used: the listing is announced there too.</param>
+    public async Task<CreateListingResult> CreateListingAsync(
+        ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note, ulong? announceChannelId = null)
     {
         if (!limiter.TryAcquire(LimitedAction.CreateListing, hostUserId, out var retryAfter))
         {
@@ -47,7 +49,7 @@ public sealed class PoolActions(
             live.PublishChanged();
             await waves.RunAsync(result.Listing.Id);
             var listing = result.Listing;
-            Background($"announce listing {listing.Id}", () => feed.PublishAsync(listing));
+            Background($"announce listing {listing.Id}", () => feed.PublishAsync(listing, announceChannelId));
         }
 
         return result;

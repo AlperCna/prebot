@@ -86,6 +86,25 @@ public sealed class AccountService(IDbContextFactory<PreBotDbContext> dbFactory,
             .ToDictionaryAsync(a => (ulong)a.Id, a => a.DisplayName, ct);
     }
 
+    /// <summary>Discord user ids (snowflakes) of the given website users that signed up through Discord.</summary>
+    public async Task<IReadOnlyDictionary<ulong, ulong>> GetDiscordIdsAsync(IEnumerable<ulong> userIds, CancellationToken ct = default)
+    {
+        var ids = userIds.Select(u => (long)u).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<ulong, ulong>();
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var rows = await db.Accounts.AsNoTracking()
+            .Where(a => ids.Contains(a.Id) && a.Provider == "discord")
+            .Select(a => new { a.Id, a.ProviderKey })
+            .ToListAsync(ct);
+        return rows
+            .Where(r => ulong.TryParse(r.ProviderKey, out _))
+            .ToDictionary(r => (ulong)r.Id, r => ulong.Parse(r.ProviderKey));
+    }
+
     /// <summary>KVKK: deletes all bot data for the user, then the account itself.</summary>
     public async Task<DeleteUserDataResult> DeleteAccountAsync(ulong userId, CancellationToken ct = default)
     {
