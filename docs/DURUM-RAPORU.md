@@ -4,6 +4,30 @@
 
 **Kısa cevap:** Yazılım tarafında sorunu çözen akışın tamamı çalışıyor ve gerçek tarayıcıda baştan sona denendi. Sorunu gerçekten çözüp çözmediği artık koda değil **kullanıcıya** bağlı. Havuzda akşamları yeterince insan olursa ilanlar dakikalar içinde doluyor. Bunu ölçmek için `/istatistik` sayfası eklendi. Sıradaki adım siteyi yayına alıp gerçek oyuncularla denemek; bu adımı senin yapman gerekiyor (aşağıda).
 
+## Güncelleme: Faz 0 (yayın öncesi güvenlik ve ölçüm) tamamlandı
+
+[Yol haritasındaki](../arastirma/reports/PreBot%20geliştirme%20yol%20haritası.md) Faz 0'ın kod tarafı bitti:
+
+| Madde | Yapılan |
+|---|---|
+| F0.1 Sızan anahtar | Data Protection anahtarı depodan çıkarıldı. `keys/` git ve Docker dışında. CI'da gitleaks taraması, Dependabot. |
+| Eşleştirme | Boş dalga 2 dakika bekletmiyor (genişletilmiş dalgada uygun biri varsa hemen gidiyor). İlan formu varsayılan olarak Demir–Elmas. |
+| F0.2 `?katil=1` | Bildirimdeki Katıl bağlantısı kişiye ve ilana bağlı, 20 dakikalık şifreli token taşıyor. Kopyalanan bağlantı kimseyi oturtmuyor. |
+| F0.3 Proxy | `X-Forwarded-*` yalnızca Caddy'nin sabit Docker ağından kabul ediliyor. |
+| F0.4 Hız sınırı | IP başına genel ve giriş sınırı (429 + Retry-After). Kullanıcı başına ilan (6/saat), katılma (6/dk), test bildirimi (3/10 dk). |
+| F0.5 Yedek | Her gece 05:00'te veritabanı + oturum anahtarları + push anahtarı. 7 gün / 4 pazar / 6 ay saklama, heartbeat, sunucu dışı rclone betiği. |
+| F0.6 Uyum | Yeni KVKK aydınlatma metni (veri sorumlusu, saklama süreleri, push verisi, yurt dışı aktarımlar, çerezler). Girişte "okudum, kabul ediyorum, 16+" kutucuğu. `/iletisim` sayfası. Kapanan ilanlar 90 gün sonra siliniyor. |
+| F0.7 README | Baştan yazıldı; Riot maddesi düzeltildi (üretim anahtarı). |
+| F0.8 Sıkılaştırma | Güvenlik başlıkları (Caddy + uygulama), rapor modunda CSP, çıkış artık antiforgery'li POST, `AllowedHosts`, Caddy sürümü sabit. |
+| F0.9 İzleme | JSON loglar, log rotasyonu, `/health/live` ve `/health/ready`, push sonuç logları. |
+| F0.10 Ölçüm | Kimliksiz olay günlüğü; istatistikler hesap silinince değişmiyor. Gelmeme ve vazgeçme ayrı; p90 dolma süresi ve gelmeme oranı `/istatistik`'te. |
+| F0.11 Rank etiketi | Rankların beyan olduğu yazıyor; ilan formunda Flex parti kuralı. |
+| F0.12 (kod kısmı) | Riot alan adı doğrulaması için `/riot.txt` (`RIOT_VERIFICATION_CODE`). |
+
+**Doğrulama:** 132 otomatik test, uyarıları hata sayan Release derleme, Docker imajı `/health` denemesi ve gerçek Edge ile 9 adımlı push E2E testi (kopyalanan bağlantının reddedilmesi dahil) geçti.
+
+**Sende kalanlar (değişmedi):** VPS ve alan adı, `.env` doldurmak (yeni zorunlu alanlar: `SITE_OPERATOR_NAME`, `SITE_CONTACT_EMAIL`, `SITE_HOSTING_LOCATION`), Google "Publish app", yedek için depolama ve Healthchecks.io hesabı, Riot üretim başvurusu, KVKK md. 9 için hukukçu görüşü. İsteğe bağlı: git geçmişindeki eski anahtarın temizlenmesi (üretim kendi anahtarını ürettiği için zorunlu değil).
+
 ## Akış: "4 kişiyiz, 1 kişi lazım" → oyunda
 
 1. **Oyuncu B** (müsait olan): Siteye girer → "Şu an müsaitim" der (rol + rank). Ya da her akşam uğraşmamak için **"Bana haber ver"** ile saat aralığı kurar.
