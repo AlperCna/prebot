@@ -5,6 +5,8 @@
 
 ## Önce bunu oku
 
+**[reports/PreBot kesin karar.md](reports/PreBot%20kesin%20karar.md)**: Kesin karar (9 Kasım 2026): PreBot sorunu çözüyor mu, talep ve rakipler, devam/dur eşiği.
+
 **[reports/PreBot geliştirme yol haritası.md](reports/PreBot%20geliştirme%20yol%20haritası.md)**: Güncel yol haritası (9 Kasım 2026). Neyin yapıldığını, neyin eksik kaldığını ve sıradaki işleri fazlara ayırarak anlatıyor.
 
 **[reports/Web uygulaması mı Discord mu.md](reports/Web%20uygulaması%20mı%20Discord%20mu.md)**: Kanal ve mimari kararı.
