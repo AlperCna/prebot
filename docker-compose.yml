@@ -30,13 +30,20 @@ services:
       ReverseProxy__KnownNetworks: 172.30.0.0/24
       # Optional dead-man's switch for the nightly backup (e.g. a Healthchecks.io ping URL).
       Backup__HeartbeatUrl: ${BACKUP_HEARTBEAT_URL:-}
+      # Only answer for the real domain (and localhost for the container health check).
+      AllowedHosts: "${DOMAIN};localhost"
     volumes:
       - prebot-data:/data
     expose:
       - "8080"
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   caddy:
-    image: caddy:2
+    image: caddy:2.10
     restart: unless-stopped
     depends_on:
       - web
@@ -50,6 +57,7 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    logging: *logging
 
   # Standalone bot: only if the website does NOT host the bot.
   bot:

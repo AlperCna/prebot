@@ -79,6 +79,42 @@ public sealed partial class WebAppTests : IDisposable
 
     private static readonly (string PublicKey, string PrivateKey) TestKeys = PreBot.Web.Push.VapidKeys.Generate();
 
+    [Fact]
+    public async Task Pages_send_security_headers_and_health_endpoints_split_live_and_ready()
+    {
+        var client = Client();
+
+        var home = await client.GetAsync("/");
+        Assert.Equal("nosniff", home.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Contains("frame-ancestors 'none'", home.Headers.GetValues("Content-Security-Policy-Report-Only").Single());
+
+        Assert.Equal("Healthy", await client.GetStringAsync("/health/live"));
+        Assert.Equal("Healthy", await client.GetStringAsync("/health/ready"));
+    }
+
+    [Fact]
+    public async Task Logout_needs_a_post_with_antiforgery_and_get_cannot_log_out_a_live_account()
+    {
+        var client = Client();
+        await DevLoginAsync(client, "Çıkışçı");
+
+        // A link or image on another site (GET) must not log the user out.
+        var get = await client.GetAsync("/auth/logout");
+        Assert.Equal("/profil", get.Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/profil")).StatusCode);
+
+        // A POST without the antiforgery token is refused.
+        var forged = await client.PostAsync("/auth/logout", new FormUrlEncodedContent([]));
+        Assert.Equal(HttpStatusCode.BadRequest, forged.StatusCode);
+
+        var page = await client.GetStringAsync("/giris");
+        var token = AntiforgeryField().Match(page).Groups[1].Value;
+        var real = await client.PostAsync("/auth/logout",
+            new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token }));
+        Assert.Equal("/", real.Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/profil")).StatusCode); // back to login
+    }
+
     [Theory]
     [InlineData("/manifest.webmanifest", "standalone")]
     [InlineData("/sw.js", "notificationclick")]
@@ -227,7 +263,9 @@ public sealed partial class WebAppTests : IDisposable
         await DevLoginAsync(client, "Alper");
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/havuz")).StatusCode);
 
-        var logout = await client.GetAsync("/auth/logout");
+        var token = AntiforgeryField().Match(await client.GetStringAsync("/giris")).Groups[1].Value;
+        var logout = await client.PostAsync("/auth/logout",
+            new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token }));
 
         Assert.Equal("/", logout.Headers.Location!.ToString());
         Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/havuz")).StatusCode);

@@ -14,6 +14,12 @@ using PreBot.Web.Push;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// One JSON object per log line in production: easy to search and to ship to a log tool later.
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Logging.AddJsonConsole(o => o.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ ");
+}
+
 // ---------- Data folder ----------
 // Database and push keys live outside the source tree. Locally that is %LOCALAPPDATA%\PreBot, because
 // synced folders (OneDrive, Dropbox) lock SQLite's -wal/-shm files and must never upload the private key.
@@ -150,11 +156,25 @@ builder.Services.AddRateLimiter(o =>
 
 // /health: used by Docker to know the site is alive and the database answers.
 builder.Services.AddHealthChecks()
-    .AddCheck<DatabaseHealthCheck>("database");
+    .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+
+// Security headers. The CSP is report-only for now: violations show in the browser console without
+// breaking anything; switch to enforcing once a week of real use shows none (HSTS is set by Caddy).
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers.XContentTypeOptions = "nosniff";
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    headers["Content-Security-Policy-Report-Only"] =
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+        "font-src 'self'; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; " +
+        "form-action 'self' https://accounts.google.com https://discord.com; frame-ancestors 'none'";
+    await next();
+});
 
 // Create or upgrade the database schema (EF Core migrations), then enable WAL.
 await DatabaseSetup.MigrateAsync(
@@ -176,10 +196,12 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health");                                                     // database included
+app.MapHealthChecks("/health/live", new() { Predicate = _ => false });             // process is up
+app.MapHealthChecks("/health/ready", new() { Predicate = c => c.Tags.Contains("ready") });
 app.MapAuthEndpoints();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = "'none'");
 
 app.Run();
 

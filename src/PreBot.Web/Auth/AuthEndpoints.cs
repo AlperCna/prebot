@@ -70,8 +70,28 @@ public static class AuthEndpoints
             return await ExternalLogin.CompleteAsync(http, result.Principal, p.Name, accounts, returnUrl);
         }).RequireRateLimiting("auth");
 
-        app.MapGet("/auth/logout", async (HttpContext http) =>
+        // Logging out is a POST with an antiforgery token, so another site cannot log people out.
+        app.MapPost("/auth/logout", async (HttpContext http, Microsoft.AspNetCore.Antiforgery.IAntiforgery antiforgery) =>
         {
+            // The handler reads no form fields, so the token is not checked automatically: check it here.
+            if (!await antiforgery.IsRequestValidAsync(http))
+            {
+                return Results.BadRequest();
+            }
+
+            await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return Results.LocalRedirect("/");
+        });
+
+        // GET only clears a cookie whose account no longer exists (after "Verilerimi sil").
+        app.MapGet("/auth/logout", async (HttpContext http, AccountService accounts) =>
+        {
+            var userId = http.User.GetUserId();
+            if (userId is not null && await accounts.FindAsync(userId.Value) is not null)
+            {
+                return Results.LocalRedirect("/profil");
+            }
+
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return Results.LocalRedirect("/");
         });

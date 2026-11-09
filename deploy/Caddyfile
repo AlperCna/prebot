@@ -1,6 +1,23 @@
 # Caddy gets and renews the HTTPS certificate (Let's Encrypt) for $DOMAIN automatically,
 # and forwards everything (including Blazor's WebSocket) to the web container.
+{
+	log {
+		format json
+	}
+}
+
+(security) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		-Server
+	}
+}
+
 {$DOMAIN} {
+	import security
 	encode zstd gzip
 	reverse_proxy web:8080
 }

@@ -63,6 +63,12 @@ public sealed class PushSender(
                 await subscriptions.RemovePushSubscriptionAsync(device.Endpoint, ct);
                 return (device.Id, Ok: false);
             }
+            catch (PushServiceClientException ex)
+            {
+                // 413: payload too big, 429: push service rate limit (Retry-After), 5xx: service trouble.
+                logger.LogWarning("Push to device {DeviceId} refused: {Status} {Reason}", device.Id, (int)ex.StatusCode, ex.Message);
+                return (device.Id, Ok: false);
+            }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "Push to device {DeviceId} failed", device.Id);
@@ -72,6 +78,7 @@ public sealed class PushSender(
 
         var delivered = results.Where(r => r.Ok).Select(r => r.Id).ToList();
         await subscriptions.MarkPushDeliveredAsync(delivered, ct);
+        logger.LogInformation("Push sent: {Delivered}/{Devices} devices accepted", delivered.Count, devices.Count);
         return delivered.Count;
     }
 
