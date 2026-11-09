@@ -20,7 +20,7 @@ public static class Lobby
     public static string NewPassword() =>
         RandomNumberGenerator.GetString("abcdefghjkmnpqrstuvwxyz23456789", 6);
 
-    /// <summary>The name to type in the client, ASCII only (e.g. "PREBOT DESTEK 4821").</summary>
+    /// <summary>The name to type in the client, ASCII only (e.g. "PREBOT SUP 4821").</summary>
     public static string Name(Role role, string code) => $"PREBOT {Word(role)} {code}";
 
     /// <summary>One line for personal notifications (push, DM): where to find the lobby and its password.</summary>
@@ -31,13 +31,14 @@ public static class Lobby
     public static string PublicHint(Role role, string code, bool locked) =>
         $"Oyundaysan: Özel oyuna katıl → {Name(role, code)}" + (locked ? " (şifreli; şifre PreBot bildiriminde)" : "");
 
+    // The name is public in the client's custom game list: short words like the lobbies players already make.
     private static string Word(Role role) => role switch
     {
         Role.Top => "TOP",
-        Role.Jungle => "ORMAN",
-        Role.Mid => "ORTA",
+        Role.Jungle => "JG",
+        Role.Mid => "MID",
         Role.Adc => "ADC",
-        Role.Support => "DESTEK",
+        Role.Support => "SUP",
         _ => "FILL",
     };
 }

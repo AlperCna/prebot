@@ -210,6 +210,18 @@ code {
     margin: 0 0.35rem 0.35rem 0;
 }
 
+/* "op.gg" next to a Riot ID: opens the player's stats in a new tab. */
+.profile-link {
+    color: var(--pb-teal);
+    border-color: var(--pb-teal);
+    text-decoration: none;
+}
+
+.profile-link:hover {
+    background: var(--pb-teal);
+    color: var(--pb-bg);
+}
+
 /* Status line on top of a listing ("Açık · 1 kişi eksik ..."). */
 .status-line {
     display: inline-flex;

@@ -21,7 +21,7 @@
             <select class="form-select" @bind="_role">
                 @foreach (var r in Format.Roles)
                 {
-                    <option value="@r">@Format.RoleLabel(r)</option>
+                    <option value="@r">@Format.RoleOption(r)</option>
                 }
             </select>
         </div>

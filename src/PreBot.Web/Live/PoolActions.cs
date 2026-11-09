@@ -123,14 +123,19 @@ public sealed class PoolActions(
         return result;
     }
 
-    public async Task<HostActionOutcome> ReportNoShowAsync(int listingId, ulong hostUserId)
+    /// <summary>The host frees one seat: "Gelmedi" (no-show) or "Uygun değil" (declined, not held against them).</summary>
+    public async Task<HostActionOutcome> ReleaseByHostAsync(int listingId, ulong hostUserId, ulong userId, SeatReleaseReason reason)
     {
-        var outcome = await pre.ReopenForNoShowAsync(listingId, hostUserId);
+        var outcome = await pre.ReleaseByHostAsync(listingId, hostUserId, userId, reason);
         if (outcome.Result == HostActionResult.Done)
         {
             live.PublishChanged();
             await waves.RunAsync(listingId);
             Background($"update announcement {listingId}", () => feed.UpdateAsync(listingId));
+            if (reason == SeatReleaseReason.HostDeclined)
+            {
+                Background($"tell declined player {listingId}", () => host.DeclinedAsync(listingId, userId));
+            }
         }
 
         return outcome;

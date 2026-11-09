@@ -71,6 +71,12 @@ public enum SeatReleaseReason
 
     /// <summary>The operator closed the player's account.</summary>
     Banned,
+
+    /// <summary>
+    /// The host chose someone else ("Uygun değil"), e.g. after looking at their profile. Not a no-show: it is
+    /// not shown to later hosts and not counted in the no-show rate.
+    /// </summary>
+    HostDeclined,
 }
 
 public enum ListingStatus
@@ -114,4 +120,10 @@ public enum HostActionResult
     NotHost,
     NothingToDo,
     NotFound,
+
+    /// <summary>"Gelmedi" too soon after the player joined: give them time to accept the invite first.</summary>
+    TooEarly,
+
+    /// <summary>The host already declined the maximum number of players for this listing.</summary>
+    LimitReached,
 }

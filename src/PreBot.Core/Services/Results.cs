@@ -11,7 +11,9 @@ public sealed record ClaimOutcome(ClaimResult Result, ulong HostUserId = 0, Time
 
 public sealed record SweepResult(int ExpiredAvailabilities, IReadOnlyList<int> ExpiredListingIds);
 
-public sealed record SlotView(ulong UserId, string? RiotId);
+/// <param name="Role">Role the player declared when joining (null = not declared).</param>
+/// <param name="Rank">Rank the player declared when joining (self-declared, null = not declared).</param>
+public sealed record SlotView(ulong UserId, string? RiotId, Role? Role = null, Rank? Rank = null, DateTime ClaimedAtUtc = default);
 
 /// <param name="LeftUserIds">Players who held a seat and gave it back (left or no-show). They cannot rejoin this listing.</param>
 public sealed record ListingView(

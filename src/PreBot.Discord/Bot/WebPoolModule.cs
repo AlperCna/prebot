@@ -43,8 +43,8 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
     [SlashCommand("musaitim", "Flex için 5. kişi olmaya hazırım: havuza gir, uygun ilanlarda haber al")]
     public async Task AvailableAsync(
         [Summary("rol", "Oynamak istediğin rol")]
-        [Choice("Top", "Top"), Choice("Orman", "Jungle"), Choice("Orta", "Mid"), Choice("ADC", "Adc"),
-         Choice("Destek", "Support"), Choice("Fark etmez", "Fill")]
+        [Choice("Top (Üst)", "Top"), Choice("Jungle (Orman)", "Jungle"), Choice("Mid (Orta)", "Mid"), Choice("ADC (Alt)", "Adc"),
+         Choice("Support (Destek)", "Support"), Choice("Fill (fark etmez)", "Fill")]
         string role,
         [Summary("rank", "Flex rankın")]
         [Choice("Demir", "Iron"), Choice("Bronz", "Bronze"), Choice("Gümüş", "Silver"), Choice("Altın", "Gold"),
@@ -101,8 +101,8 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
     [SlashCommand("pre-lazim", "Eksik kişi için ilan aç; uygun ve müsait oyunculara haber verilir")]
     public async Task NeedAsync(
         [Summary("rol", "Hangi rol lazım?")]
-        [Choice("Top", "Top"), Choice("Orman", "Jungle"), Choice("Orta", "Mid"), Choice("ADC", "Adc"),
-         Choice("Destek", "Support"), Choice("Fark etmez", "Fill")]
+        [Choice("Top (Üst)", "Top"), Choice("Jungle (Orman)", "Jungle"), Choice("Mid (Orta)", "Mid"), Choice("ADC (Alt)", "Adc"),
+         Choice("Support (Destek)", "Support"), Choice("Fill (fark etmez)", "Fill")]
         string role,
         [Summary("kisi", "Kaç kişi eksik? (Flex'e 4 kişiyle girilemez)")]
         [Choice("1 kişi (4 kişiyiz)", 1), Choice("2 kişi (3 kişiyiz)", 2), Choice("3 kişi (2 kişiyiz)", 3)]

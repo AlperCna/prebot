@@ -269,6 +269,12 @@ namespace PreBot.Core.Data.Migrations
                     b.Property<DateTime>("ClaimedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("DeclaredRank")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("DeclaredRole")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("ListingId")
                         .HasColumnType("INTEGER");
 

@@ -148,10 +148,11 @@ public sealed class StatsTests : IDisposable
     [Fact]
     public void Lobby_name_is_plain_ascii_and_notification_line_mentions_the_password_only_when_locked()
     {
-        Assert.Equal("PREBOT DESTEK 4821", Lobby.Name(Role.Support, "4821"));
-        Assert.Equal("PREBOT ORMAN 1000", Lobby.Name(Role.Jungle, "1000"));
-        Assert.EndsWith("PREBOT ORTA 1234 (şifre k7m2qx)", Lobby.Hint(Role.Mid, "1234", "k7m2qx"));
-        Assert.EndsWith("PREBOT ORTA 1234", Lobby.Hint(Role.Mid, "1234", null));
+        Assert.Equal("PREBOT SUP 4821", Lobby.Name(Role.Support, "4821"));
+        Assert.Equal("PREBOT JG 1000", Lobby.Name(Role.Jungle, "1000"));
+        Assert.EndsWith("PREBOT MID 1234 (şifre k7m2qx)", Lobby.Hint(Role.Mid, "1234", "k7m2qx"));
+        Assert.EndsWith("PREBOT MID 1234", Lobby.Hint(Role.Mid, "1234", null));
+        Assert.All(Enum.GetValues<Role>(), r => Assert.InRange(Lobby.Name(r, "1234").Length, 3, 30)); // client limit
         Assert.DoesNotContain("k7m2qx", Lobby.PublicHint(Role.Mid, "1234", locked: true));
         Assert.Contains("şifreli", Lobby.PublicHint(Role.Mid, "1234", locked: true));
         Assert.InRange(int.Parse(Lobby.NewCode()), 1000, 9999);

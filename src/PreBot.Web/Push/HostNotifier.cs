@@ -34,11 +34,13 @@ public sealed class HostNotifier(PreService pre, AccountService accounts, PushSe
 
         var l = view.Listing;
         var name = (await accounts.GetDisplayNamesAsync([joinerUserId], ct)).GetValueOrDefault(joinerUserId, "Bir oyuncu");
-        var riotId = view.ActiveSlots.FirstOrDefault(s => s.UserId == joinerUserId)?.RiotId;
-        var title = l.Status == ListingStatus.Filled ? $"Kadro tamam: {name} katıldı" : $"{name} katıldı";
+        var slot = view.ActiveSlots.FirstOrDefault(s => s.UserId == joinerUserId);
+        var riotId = slot?.RiotId;
+        var declared = slot?.Rank is { } rank ? $" ({TurkishNames.Of(rank)}{(slot.Role is { } r ? " " + TurkishNames.Of(r) : "")})" : "";
+        var title = l.Status == ListingStatus.Filled ? $"Kadro tamam: {name}{declared} katıldı" : $"{name}{declared} katıldı";
         var body = riotId is null
             ? "Riot ID'sini kaydetmemiş; ilan sayfasından birlikte çözün."
-            : $"Riot ID: {riotId} · Oyunda Arkadaş ekle → lobine davet et.";
+            : $"Riot ID: {riotId} · İlan sayfasında op.gg'ye bak, sonra Arkadaş ekle → lobine davet et.";
 
         await NotifyHostAsync(l.HostUserId, new PushPayload(title, body, $"/ilan/{l.Id}", null, $"host-{l.Id}"), JoinTtl, ct);
     }
@@ -56,6 +58,23 @@ public sealed class HostNotifier(PreService pre, AccountService accounts, PushSe
             view.Listing.HostUserId,
             new PushPayload($"{name} vazgeçti", "İlan yeniden açıldı, uygun oyunculara tekrar haber veriyorum.",
                 $"/ilan/{listingId}", null, $"host-{listingId}"),
+            JoinTtl, ct);
+    }
+
+    /// <summary>To the player the host turned down: neutral, and points back to the pool.</summary>
+    public async Task DeclinedAsync(int listingId, ulong userId, CancellationToken ct = default)
+    {
+        var view = await pre.GetListingViewAsync(listingId, ct);
+        if (view is null || view.Listing.GuildId != Communities.Web)
+        {
+            return;
+        }
+
+        await NotifyHostAsync(
+            userId,
+            new PushPayload("İlan sahibi başka biriyle devam ediyor",
+                "Bu sefer olmadı. Havuza dönersen bir sonraki uygun ilanda yine haber veririm.",
+                "/havuz", null, $"seat-{listingId}"),
             JoinTtl, ct);
     }
 

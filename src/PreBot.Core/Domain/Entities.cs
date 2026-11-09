@@ -88,6 +88,12 @@ public sealed class ListingSlot
 
     /// <summary>Why the seat was given back (null while held).</summary>
     public SeatReleaseReason? ReleaseReason { get; set; }
+
+    /// <summary>Role the player said they play (from "I'm available" or "notify me") when they took the seat.</summary>
+    public Role? DeclaredRole { get; set; }
+
+    /// <summary>Rank the player declared at that moment. Self-declared, not verified.</summary>
+    public Rank? DeclaredRank { get; set; }
 }
 
 /// <summary>

@@ -63,7 +63,8 @@ public static class ListingRenderer
         if (view.ActiveSlots.Count > 0)
         {
             var joined = string.Join("\n", view.ActiveSlots.Select(s =>
-                s.RiotId is null ? $"<@{s.UserId}> (Riot ID kayıtlı değil)" : $"<@{s.UserId}> — `{s.RiotId}`"));
+                (s.RiotId is null ? $"<@{s.UserId}> (Riot ID kayıtlı değil)" : $"<@{s.UserId}> — `{s.RiotId}`")
+                + (s.Rank is { } rank ? $" · {TurkishNames.Of(rank)} (beyan)" : "")));
             embed.AddField("Katılanlar", joined);
         }
 

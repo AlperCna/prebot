@@ -204,7 +204,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         return new ListingView(
             listing,
             riotIds.GetValueOrDefault(listing.HostUserId),
-            active.Select(s => new SlotView(s.UserId, riotIds.GetValueOrDefault(s.UserId))).ToList(),
+            active.Select(s => new SlotView(
+                s.UserId, riotIds.GetValueOrDefault(s.UserId), s.DeclaredRole, s.DeclaredRank, s.ClaimedAtUtc)).ToList(),
             listing.Slots.Where(s => s.Released).Select(s => s.UserId).ToHashSet());
     }
 
@@ -299,7 +300,27 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             return await DiagnoseFailedClaimAsync(db, listingId, userId, now, ct);
         }
 
-        db.ListingSlots.Add(new ListingSlot { ListingId = listingId, UserId = userId, ClaimedAtUtc = now });
+        // What the player told us about themselves (pool entry first, else their "notify me" setting), so the
+        // host sees role and rank next to the Riot ID.
+        var community = await db.Listings.Where(l => l.Id == listingId).Select(l => l.GuildId).SingleAsync(ct);
+        var declared = await db.Availabilities.AsNoTracking()
+                .Where(a => a.GuildId == community && a.UserId == userId)
+                .Select(a => new { a.Role, a.Rank })
+                .FirstOrDefaultAsync(ct)
+            ?? await db.AlertSubscriptions.AsNoTracking()
+                .Where(a => a.CommunityId == community && a.UserId == userId && a.Enabled)
+                .OrderByDescending(a => a.CreatedAtUtc)
+                .Select(a => new { a.Role, a.Rank })
+                .FirstOrDefaultAsync(ct);
+
+        db.ListingSlots.Add(new ListingSlot
+        {
+            ListingId = listingId,
+            UserId = userId,
+            ClaimedAtUtc = now,
+            DeclaredRole = declared?.Role,
+            DeclaredRank = declared?.Rank,
+        });
         await EnsurePlayerAsync(db, userId, now, ct);
         await db.SaveChangesAsync(ct);
 
@@ -346,6 +367,70 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
         await tx.RollbackAsync(ct);
         return await db.Listings.AnyAsync(l => l.Id == listingId, ct) ? LeaveResult.NotJoined : LeaveResult.NotFound;
+    }
+
+    /// <summary>"Gelmedi" only after this long: the player needs a moment to accept the friend request and invite.</summary>
+    public static readonly TimeSpan NoShowAfter = TimeSpan.FromMinutes(3);
+
+    /// <summary>How many players a host may turn down ("Uygun değil") in one listing.</summary>
+    public const int MaxDeclinesPerListing = 3;
+
+    /// <summary>
+    /// The host frees one specific seat: <see cref="SeatReleaseReason.NoShow"/> ("Gelmedi", counted against the
+    /// player) or <see cref="SeatReleaseReason.HostDeclined"/> ("Uygun değil", not counted). The listing reopens;
+    /// the player cannot take a seat in it again and is not notified about it again.
+    /// </summary>
+    public async Task<HostActionOutcome> ReleaseByHostAsync(
+        int listingId, ulong hostUserId, ulong userId, SeatReleaseReason reason, CancellationToken ct = default)
+    {
+        if (reason is not (SeatReleaseReason.NoShow or SeatReleaseReason.HostDeclined))
+        {
+            throw new ArgumentOutOfRangeException(nameof(reason));
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var host = await db.Listings.Where(l => l.Id == listingId).Select(l => (ulong?)l.HostUserId).SingleOrDefaultAsync(ct);
+        if (host is null)
+        {
+            return new HostActionOutcome(HostActionResult.NotFound);
+        }
+
+        if (host != hostUserId)
+        {
+            return new HostActionOutcome(HostActionResult.NotHost);
+        }
+
+        var now = Now;
+        var claimedAt = await db.ListingSlots
+            .Where(s => s.ListingId == listingId && s.UserId == userId && !s.Released)
+            .Select(s => (DateTime?)s.ClaimedAtUtc)
+            .SingleOrDefaultAsync(ct);
+        if (claimedAt is null)
+        {
+            return new HostActionOutcome(HostActionResult.NothingToDo);
+        }
+
+        if (reason == SeatReleaseReason.NoShow && now - claimedAt.Value < NoShowAfter)
+        {
+            return new HostActionOutcome(HostActionResult.TooEarly);
+        }
+
+        if (reason == SeatReleaseReason.HostDeclined
+            && await db.ListingSlots.CountAsync(s => s.ListingId == listingId && s.ReleaseReason == SeatReleaseReason.HostDeclined, ct)
+                >= MaxDeclinesPerListing)
+        {
+            return new HostActionOutcome(HostActionResult.LimitReached);
+        }
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        if (!await ReleaseSeatAsync(db, listingId, userId, reason, now, ct))
+        {
+            await tx.RollbackAsync(ct);
+            return new HostActionOutcome(HostActionResult.NothingToDo);
+        }
+
+        await tx.CommitAsync(ct);
+        return new HostActionOutcome(HostActionResult.Done, userId);
     }
 
     /// <summary>Host says the last person who joined did not show up: free that seat and look again.</summary>

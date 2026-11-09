@@ -17,7 +17,7 @@ public sealed class DiscordFeedTests : IDisposable
             42, Role.Support, Rank.Gold, Rank.Platinum, 1, "mikrofon şart", "Mert",
             new DateTime(2026, 11, 13, 21, 15, 0, DateTimeKind.Utc), "https://prebot.example/ilan/42"));
 
-        Assert.Contains("Destek", embed.Title);
+        Assert.Contains("Support", embed.Title);
         Assert.Contains("mikrofon şart", embed.Description);
         Assert.Contains(embed.Fields, f => f.Name == "Rank" && f.Value == "Altın – Platin");
         Assert.Contains(embed.Fields, f => f.Name == "Eksik" && f.Value == "1 kişi");

@@ -50,7 +50,7 @@ public sealed class JoinTokenTests
     public void Notification_tells_players_in_the_client_which_lobby_to_join()
     {
         var push = PushSender.ForListing(7, Role.Support, Rank.Iron, Rank.Diamond, 1, null, Lobby.Hint(Role.Support, "4821", null));
-        Assert.Contains("Özel oyuna katıl → PREBOT DESTEK 4821", push.Body);
+        Assert.Contains("Özel oyuna katıl → PREBOT SUP 4821", push.Body);
     }
 
     [Fact]

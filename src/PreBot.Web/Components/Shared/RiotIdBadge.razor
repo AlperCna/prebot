@@ -4,6 +4,10 @@
     <button type="button" class="rank-chip riot-copy" title="Kopyala: oyunda Arkadaş ekle'ye yapıştır" data-copy="@RiotId">
         @RiotId <span class="copy-hint"><Icon Name="copy" /> kopyala</span>
     </button>
+    @if (ShowProfile && ProfileLinks.OpGg(RiotId) is { } opgg)
+    {
+        <a class="rank-chip profile-link" href="@opgg" target="_blank" rel="noopener noreferrer" title="Maç geçmişi ve gerçek rankı OP.GG'de">op.gg</a>
+    }
 }
 else
 {
@@ -13,4 +17,7 @@ else
 @code {
     [Parameter] public string? RiotId { get; set; }
     [Parameter] public string Hint { get; set; } = "Riot ID kayıtlı değil.";
+
+    /// <summary>Also show a one-tap OP.GG link (for strangers the host is about to invite).</summary>
+    [Parameter] public bool ShowProfile { get; set; }
 }

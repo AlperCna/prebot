@@ -154,7 +154,7 @@ try
         await player.WaitForAsync("!document.querySelector('input[aria-label=\"Riot ID\"]')", TimeSpan.FromSeconds(10));
     });
 
-    await Step("Oyuncu 'Şu an müsaitim' der (Destek, Altın)", async () =>
+    await Step("Oyuncu 'Şu an müsaitim' der (Support, Altın)", async () =>
     {
         await player.NavigateAsync($"{baseUrl}/havuz");
         await player.WaitForTextAsync("Şu an müsaitim");
@@ -162,7 +162,7 @@ try
         await player.WaitForTextAsync("Havuzdasın");
     });
 
-    await Step("Başka bir oyuncu ilan açar (Destek)", async () =>
+    await Step("Başka bir oyuncu ilan açar (Support)", async () =>
     {
         await LoginAsync(host, $"E2E Host {run}", "/ilan-ac");
         await host.WaitForTextAsync("İlanı aç ve haber ver");
@@ -172,10 +172,10 @@ try
         Console.WriteLine($"       ilan #{listingId}");
     });
 
-    await Step("Oyuncuya 'Destek lazım' push bildirimi gelir", async () =>
+    await Step("Oyuncuya 'Support lazım' push bildirimi gelir", async () =>
     {
         await player.WaitForAsync(
-            "navigator.serviceWorker.ready.then(r => r.getNotifications()).then(ns => ns.some(n => n.title.includes('Destek lazım')))",
+            "navigator.serviceWorker.ready.then(r => r.getNotifications()).then(ns => ns.some(n => n.title.includes('Support lazım')))",
             TimeSpan.FromSeconds(30));
         Console.WriteLine($"       bildirimler: {await player.NotificationTitlesAsync()}");
     });
@@ -196,7 +196,7 @@ try
     await Step("Bildirimdeki kişisel 'Katıl' bağlantısı yeri kapar", async () =>
     {
         var joinUrl = (await player.EvalAsync(
-            "navigator.serviceWorker.ready.then(r => r.getNotifications()).then(ns => ns.find(n => n.title.includes('Destek lazım')).data.joinUrl)"))!
+            "navigator.serviceWorker.ready.then(r => r.getNotifications()).then(ns => ns.find(n => n.title.includes('Support lazım')).data.joinUrl)"))!
             .GetValue<string>();
         await player.NavigateAsync(new Uri(new Uri(baseUrl), joinUrl).ToString());
         await player.WaitForTextAsync("İlan sahibi seni oyunda davet edecek");

@@ -94,15 +94,26 @@
     {
         @foreach (var slot in _view.ActiveSlots)
         {
-            <div class="mb-1">
+            <div class="mb-2">
                 <strong>@_names.GetValueOrDefault(slot.UserId, "Bir oyuncu")</strong>
                 @if (insider)
                 {
-                    <RiotIdBadge RiotId="@slot.RiotId" Hint="Riot ID kayıtlı değil, kendisine sor." />
+                    <span class="small text-dim ms-1">@Declared(slot)</span>
+                    <RiotIdBadge RiotId="@slot.RiotId" Hint="Riot ID kayıtlı değil, kendisine sor." ShowProfile="@isHost" />
                 }
                 @if (isHost && _noShows.GetValueOrDefault(slot.UserId) is var missed && missed > 0)
                 {
                     <span class="small text-warning ms-1" title="Daha önceki ilanlarda ilan sahipleri 'Gelmedi' dedi"><Icon Name="alert" /> daha önce @missed kez gelmedi</span>
+                }
+                @if (isHost && active)
+                {
+                    var canNoShow = Now - slot.ClaimedAtUtc >= PreService.NoShowAfter;
+                    <div class="d-flex flex-wrap gap-2 mt-1">
+                        <button class="btn btn-sm btn-outline-light" disabled="@(_busy || !Ready)" @onclick="() => DeclineAsync(slot.UserId)"
+                                title="Başka biriyle devam et. Oyuncunun kaydına 'gelmedi' yazılmaz.">Uygun değil, sıradaki</button>
+                        <button class="btn btn-sm btn-outline-light" disabled="@(_busy || !Ready || !canNoShow)" @onclick="() => NoShowAsync(slot.UserId)"
+                                title="@(canNoShow ? "Davet ettin ama gelmedi: yeri boşalt, yeniden ara." : "Katıldıktan 3 dakika sonra açılır; önce daveti kabul etmesi için zaman tanı.")">Gelmedi</button>
+                    </div>
                 }
             </div>
         }
@@ -140,12 +151,15 @@
     {
         <div class="alert alert-info small mt-3 mb-0">
             Katılanın Riot ID'sine dokun (kopyalanır) → oyunda <strong>Arkadaş ekle</strong>'ye yapıştır → lobine davet et.
-            <span class="d-block mt-1 text-dim">Ranklar oyuncuların kendi beyanı, doğrulanmıyor. Emin olmak istersen Riot ID'sine op.gg gibi bir sitede bakabilirsin.</span>
+            <span class="d-block mt-1 text-dim">
+                Ranklar beyan, doğrulanmıyor: <strong>op.gg</strong>'ye tek dokunuşla bak. Uymuyorsa <strong>Uygun değil, sıradaki</strong>
+                de; kaydına "gelmedi" yazılmaz. <strong>Gelmedi</strong>'yi yalnızca davet ettiğin hâlde gelmeyen için kullan.
+            </span>
         </div>
     }
     @if (left && l.Status == ListingStatus.Open)
     {
-        <div class="alert alert-secondary small mt-3 mb-0">Bu ilandan ayrıldın, yerin başkasına açıldı. Aynı ilana tekrar katılamazsın.</div>
+        <div class="alert alert-secondary small mt-3 mb-0">Bu ilanda artık yerin yok, yer başkasına açıldı. Aynı ilana tekrar katılamazsın; <a href="/havuz">havuza dönersen</a> sıradaki uygun ilanda yine haber veririm.</div>
     }
     @if (joined)
     {
@@ -183,10 +197,6 @@
         }
         @if (isHost && l.Status is ListingStatus.Open or ListingStatus.Filled)
         {
-            @if (_view.ActiveSlots.Count > 0)
-            {
-                <button class="btn btn-outline-light" disabled="@(_busy || !Ready)" @onclick="NoShowAsync">Gelmedi, yeniden ara</button>
-            }
             <button class="btn btn-outline-danger" disabled="@(_busy || !Ready)" @onclick="CancelAsync">İlanı kapat</button>
         }
         @if (isHost && l.Status is ListingStatus.Expired or ListingStatus.Cancelled)
@@ -352,10 +362,32 @@
     private Task LeaveAsync() => RunAsync(async () =>
         await Actions.LeaveAsync(Id, UserId) == LeaveResult.Left ? null : "Bu ilanda yerin yok.");
 
-    private Task NoShowAsync() => RunAsync(async () =>
-        (await Actions.ReportNoShowAsync(Id, UserId)).Result == HostActionResult.Done
-            ? null
-            : "Çıkarılacak kimse yok.");
+    private DateTime Now => DateTime.UtcNow;
+
+    /// <summary>"Altın · Support" from what the player declared when joining.</summary>
+    private static string Declared(SlotView slot) => (slot.Rank, slot.Role) switch
+    {
+        ({ } rank, { } role) => $"{TurkishNames.Of(rank)} · {TurkishNames.Of(role)} (beyan)",
+        ({ } rank, null) => $"{TurkishNames.Of(rank)} (beyan)",
+        (null, { } role) => $"{TurkishNames.Of(role)} (beyan)",
+        _ => "rank belirtmemiş",
+    };
+
+    private Task DeclineAsync(ulong userId) => RunAsync(async () =>
+        (await Actions.ReleaseByHostAsync(Id, UserId, userId, SeatReleaseReason.HostDeclined)).Result switch
+        {
+            HostActionResult.Done => null,
+            HostActionResult.LimitReached => $"Bu ilanda en fazla {PreService.MaxDeclinesPerListing} kişiyi geri çevirebilirsin. Rank aralığını daraltıp ilanı yeniden açmayı dene.",
+            _ => "Bu oyuncu artık ilanda değil.",
+        });
+
+    private Task NoShowAsync(ulong userId) => RunAsync(async () =>
+        (await Actions.ReleaseByHostAsync(Id, UserId, userId, SeatReleaseReason.NoShow)).Result switch
+        {
+            HostActionResult.Done => null,
+            HostActionResult.TooEarly => "Katıldıktan 3 dakika sonra 'Gelmedi' diyebilirsin; önce daveti kabul etmesine zaman tanı.",
+            _ => "Bu oyuncu artık ilanda değil.",
+        });
 
     private async Task ReportAsync()
     {
