@@ -29,7 +29,7 @@ public sealed class ExpiryWorker(
 
             try
             {
-                var sweep = await pre.SweepAsync(stoppingToken);
+                var sweep = await pre.SweepAsync(exceptCommunity: Communities.Web, ct: stoppingToken);
                 foreach (var listingId in sweep.ExpiredListingIds)
                 {
                     await notifier.RefreshAsync(listingId, stoppingToken);

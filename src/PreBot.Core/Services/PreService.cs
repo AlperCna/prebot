@@ -264,7 +264,9 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
                 && l.ExpiresAtUtc > now
                 && l.SlotsFilled < l.SlotsNeeded
                 && l.HostUserId != userId
-                && !db.ListingSlots.Any(s => s.ListingId == listingId && s.UserId == userId))
+                && !db.ListingSlots.Any(s => s.ListingId == listingId && s.UserId == userId)
+                && !db.ListingSlots.Any(s => s.UserId == userId && !s.Released && s.ListingId != listingId
+                    && db.Listings.Any(o => o.Id == s.ListingId && o.Status == ListingStatus.Open)))
             .ExecuteUpdateAsync(s => s.SetProperty(l => l.SlotsFilled, l => l.SlotsFilled + 1), ct);
 
         if (updated == 0)
@@ -395,7 +397,6 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         if (listing is null
             || listing.Status != ListingStatus.Open
             || listing.ExpiresAtUtc <= now
-            || listing.WavesSent >= Matcher.MaxWaves
             || listing.NextWaveAtUtc is null
             || listing.NextWaveAtUtc > now)
         {
@@ -403,7 +404,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         }
 
         var wave = listing.WavesSent;
-        DateTime? nextWaveAt = wave + 1 < Matcher.MaxWaves ? now + Matcher.DelayAfterWave(wave) : null;
+        // After the widening waves the listing keeps listening for newcomers until it fills or expires.
+        DateTime? nextWaveAt = now + Matcher.DelayAfterWave(wave);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var advanced = await db.Listings
@@ -433,8 +435,9 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
         var criteria = Criteria(listing);
         var notify = new List<ulong>();
+        var reachable = listing.GuildId == Communities.Web ? await ReachableAsync(db, pool.Select(a => a.UserId), ct) : null;
 
-        var picked = Matcher.FindCandidates(pool, criteria, wave, now, PingCooldown, excluded);
+        var picked = Matcher.FindCandidates(pool, criteria, wave, now, PingCooldown, excluded, reachable);
         foreach (var entry in picked)
         {
             entry.LastPingedAtUtc = now;
@@ -480,7 +483,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         // minutes for nothing. If the wider wave is empty too, keep the normal delay so players who
         // become available in the meantime are still caught.
         var skipAhead = notify.Count == 0
-            && nextWaveAt is not null
+            && wave + 1 < Matcher.MaxWaves
             && await NextWaveHasCandidatesAsync(db, listing, criteria, wave + 1, pool, excluded, now, ct);
         if (skipAhead)
         {
@@ -494,6 +497,55 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         return skipAhead
             ? await RunNextWaveAsync(listingId, ct) ?? new WaveResult(listingId, wave, notify)
             : new WaveResult(listingId, wave, notify);
+    }
+
+    /// <summary>
+    /// Someone just said "available": if an open listing already fits them, tell them now instead of
+    /// waiting for its next wave. Picks the most urgent one (fewest missing seats, then oldest).
+    /// </summary>
+    public async Task<WaveResult?> MatchNewcomerAsync(ulong communityId, ulong userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        var me = await db.Availabilities.SingleOrDefaultAsync(a => a.GuildId == communityId && a.UserId == userId && a.ExpiresAtUtc > now, ct);
+        if (me is null || (me.LastPingedAtUtc is { } last && now - last < PingCooldown))
+        {
+            return null;
+        }
+
+        var open = await db.Listings.AsNoTracking()
+            .Where(l => l.GuildId == communityId && l.Status == ListingStatus.Open && l.ExpiresAtUtc > now
+                && l.HostUserId != userId
+                && !db.ListingSlots.Any(s => s.ListingId == l.Id && s.UserId == userId)
+                && !db.ListingNotifications.Any(n => n.ListingId == l.Id && n.UserId == userId))
+            .ToListAsync(ct);
+
+        var best = open
+            .Where(l => Matcher.FindCandidates([me], Criteria(l), Math.Clamp(l.WavesSent - 1, 0, Matcher.MaxWaves - 1), now, PingCooldown, new HashSet<ulong>()).Count > 0)
+            .OrderBy(l => l.SlotsNeeded - l.SlotsFilled)
+            .ThenBy(l => l.CreatedAtUtc)
+            .FirstOrDefault();
+        if (best is null)
+        {
+            return null;
+        }
+
+        var wave = Math.Max(0, best.WavesSent - 1);
+        me.LastPingedAtUtc = now;
+        db.ListingNotifications.Add(new ListingNotification { ListingId = best.Id, UserId = userId, Wave = wave, SentAtUtc = now });
+        Record(db, MetricKind.WaveSent, best, now, wave: wave, value: 1);
+        await db.SaveChangesAsync(ct);
+        return new WaveResult(best.Id, wave, [userId]);
+    }
+
+    /// <summary>Website players we can reach while the site is closed: a push device or a Discord account (DM).</summary>
+    private static async Task<IReadOnlySet<ulong>> ReachableAsync(PreBotDbContext db, IEnumerable<ulong> userIds, CancellationToken ct)
+    {
+        var ids = userIds.Distinct().ToList();
+        var accountIds = ids.Select(u => (long)u).ToList();
+        var withPush = await db.PushSubscriptions.Where(p => ids.Contains(p.UserId)).Select(p => p.UserId).ToListAsync(ct);
+        var discord = await db.Accounts.Where(a => accountIds.Contains(a.Id) && a.Provider == "discord").Select(a => a.Id).ToListAsync(ct);
+        return withPush.Concat(discord.Select(d => (ulong)d)).ToHashSet();
     }
 
     private async Task<bool> NextWaveHasCandidatesAsync(
@@ -534,8 +586,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         var query = db.Listings.AsNoTracking()
             .Where(l => l.Status == ListingStatus.Open
                 && l.NextWaveAtUtc != null && l.NextWaveAtUtc <= now
-                && l.ExpiresAtUtc > now
-                && l.WavesSent < Matcher.MaxWaves);
+                && l.ExpiresAtUtc > now);
         if (onlyCommunity is { } only)
         {
             query = query.Where(l => l.GuildId == only);
@@ -551,18 +602,31 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
     // ---------- Expiry ----------
 
-    /// <summary>Removes expired "available" entries and closes expired listings.</summary>
-    public async Task<SweepResult> SweepAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Removes expired "available" entries and closes expired listings. Like the waves, each worker only
+    /// closes its own community's listings, so the one that reacts (host push, announcement) sees them.
+    /// </summary>
+    public async Task<SweepResult> SweepAsync(ulong? onlyCommunity = null, ulong? exceptCommunity = null, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var now = Now;
 
-        var expiredAvailabilities = await db.Availabilities.Where(a => a.ExpiresAtUtc <= now).ExecuteDeleteAsync(ct);
+        var availabilities = db.Availabilities.Where(a => a.ExpiresAtUtc <= now);
+        var listings = db.Listings.Where(l => l.Status == ListingStatus.Open && l.ExpiresAtUtc <= now);
+        if (onlyCommunity is { } only)
+        {
+            availabilities = availabilities.Where(a => a.GuildId == only);
+            listings = listings.Where(l => l.GuildId == only);
+        }
 
-        var expiredIds = await db.Listings
-            .Where(l => l.Status == ListingStatus.Open && l.ExpiresAtUtc <= now)
-            .Select(l => l.Id)
-            .ToListAsync(ct);
+        if (exceptCommunity is { } except)
+        {
+            availabilities = availabilities.Where(a => a.GuildId != except);
+            listings = listings.Where(l => l.GuildId != except);
+        }
+
+        var expiredAvailabilities = await availabilities.ExecuteDeleteAsync(ct);
+        var expiredIds = await listings.Select(l => l.Id).ToListAsync(ct);
         if (expiredIds.Count > 0)
         {
             // Status check again: a listing that got filled in the meantime must stay "Filled".
@@ -721,6 +785,9 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         Record(db, MetricKind.SeatReleased, community, listingId, now, reason: reason);
         await db.SaveChangesAsync(ct);
 
+        // A seat is free again: players asked earlier may say yes now (the per-player cooldown still applies).
+        await db.ListingNotifications.Where(n => n.ListingId == listingId).ExecuteDeleteAsync(ct);
+
         var minExpiry = now.AddMinutes(options.ReopenMinutes);
         await db.Listings
             .Where(l => l.Id == listingId && l.SlotsFilled > 0)
@@ -752,6 +819,12 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         if (await db.ListingSlots.AnyAsync(s => s.ListingId == listingId && s.UserId == userId, ct))
         {
             return new ClaimOutcome(ClaimResult.AlreadyJoined, listing.HostUserId);
+        }
+
+        if (await db.ListingSlots.AnyAsync(s => s.UserId == userId && !s.Released && s.ListingId != listingId
+                && db.Listings.Any(o => o.Id == s.ListingId && o.Status == ListingStatus.Open), ct))
+        {
+            return new ClaimOutcome(ClaimResult.HoldsOtherSeat, listing.HostUserId);
         }
 
         if (listing.Status == ListingStatus.Filled

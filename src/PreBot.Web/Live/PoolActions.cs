@@ -25,6 +25,13 @@ public sealed class PoolActions(
     {
         var entry = await pre.SetAvailableAsync(Web, userId, role, rank, duration);
         live.PublishChanged();
+
+        // A listing may already be waiting for exactly this player: tell them now, not at its next wave.
+        if (await pre.MatchNewcomerAsync(Web, userId) is { } wave)
+        {
+            Background($"newcomer match {wave.ListingId}", () => waves.DispatchAsync(wave));
+        }
+
         return entry;
     }
 
@@ -60,6 +67,12 @@ public sealed class PoolActions(
         if (!limiter.TryAcquire(LimitedAction.Join, userId, out var retryAfter))
         {
             return new ClaimOutcome(ClaimResult.RateLimited, RetryAfter: retryAfter);
+        }
+
+        // Without a Riot ID the host cannot invite them, and a full listing stops looking for anyone else.
+        if (await pre.GetRiotIdAsync(userId) is null)
+        {
+            return new ClaimOutcome(ClaimResult.NeedsRiotId);
         }
 
         var outcome = await pre.TryClaimAsync(listingId, userId);

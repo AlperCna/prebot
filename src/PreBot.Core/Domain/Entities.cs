@@ -56,7 +56,7 @@ public sealed class Listing
     public DateTime CreatedAtUtc { get; set; }
     public DateTime ExpiresAtUtc { get; set; }
 
-    /// <summary>How many notification waves have been sent (0..Matcher.MaxWaves).</summary>
+    /// <summary>How many notification waves have been sent (keeps counting after Matcher.MaxWaves).</summary>
     public int WavesSent { get; set; }
 
     public DateTime? NextWaveAtUtc { get; set; }

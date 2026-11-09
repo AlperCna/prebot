@@ -99,6 +99,7 @@ public sealed class PushTests : IDisposable
     {
         var host = await PlayerWithPhoneAsync("Mert", "https://push.example/host-phone");
         var player = (await Get<AccountService>().GetOrCreateAsync("dev", "alper", "Alper")).UserId;
+        await Get<PreService>().SetRiotIdAsync(player, "Alper#TR1");
         var id = (await Get<PoolActions>().CreateListingAsync(host, Role.Support, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id;
         _push.Clear();
 

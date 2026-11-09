@@ -98,12 +98,46 @@ public sealed class SinglePoolTests : IDisposable
         Assert.Equal(result.Listing.Id, dm.ListingId);
         Assert.DoesNotContain(_dm.Listings, d => d.DiscordId == 777); // the host is not notified about their own listing
 
+        // Without a Riot ID the seat can't be taken (the host could not invite them); Discord asks for it first.
+        Assert.Equal(ClaimResult.NeedsRiotId, (await pool.ClaimAsync(result.Listing.Id, discordUser)).Result);
+        Assert.True(await pool.SetRiotIdAsync(discordUser, "Discordcu#TR1"));
+
         // The Discord player takes the seat from the DM button; the Discord-only host hears about it by DM.
         var claim = await pool.ClaimAsync(result.Listing.Id, discordUser);
         Assert.Equal(ClaimResult.ClaimedAndFilled, claim.Result);
         var hostDm = await _dm.WaitForTextAsync(777);
         Assert.Contains("Discordcu", hostDm.Title);
         Assert.Equal($"https://prebot.example/ilan/{result.Listing.Id}", hostDm.Url);
+    }
+
+    [Fact]
+    public async Task Player_who_becomes_available_late_hears_about_a_waiting_listing_at_once()
+    {
+        var pool = Get<IWebPool>();
+        var host = await pool.AccountForDiscordUserAsync(1001, "Host");
+        var late = await pool.AccountForDiscordUserAsync(1002, "Geç Gelen");
+        var listing = (await pool.CreateListingAsync(host, Role.Mid, Rank.Iron, Rank.Diamond, 1, null, 42)).Listing!;
+        Assert.Empty(_dm.Listings); // nobody in the pool yet
+
+        await pool.SetAvailableAsync(late, Role.Mid, Rank.Gold, TimeSpan.FromHours(1));
+
+        var dm = await _dm.WaitForListingAsync(1002);
+        Assert.Equal(listing.Id, dm.ListingId);
+    }
+
+    [Fact]
+    public async Task A_player_holds_one_open_seat_at_a_time()
+    {
+        var pool = Get<IWebPool>();
+        var a = await pool.AccountForDiscordUserAsync(2001, "A");
+        var b = await pool.AccountForDiscordUserAsync(2002, "B");
+        var player = await pool.AccountForDiscordUserAsync(2003, "Oyuncu");
+        await pool.SetRiotIdAsync(player, "Oyuncu#TR1");
+        var first = (await pool.CreateListingAsync(a, Role.Mid, Rank.Iron, Rank.Diamond, 2, null, 42)).Listing!;
+        var second = (await pool.CreateListingAsync(b, Role.Top, Rank.Iron, Rank.Diamond, 1, null, 42)).Listing!;
+
+        Assert.Equal(ClaimResult.Claimed, (await pool.ClaimAsync(first.Id, player)).Result);
+        Assert.Equal(ClaimResult.HoldsOtherSeat, (await pool.ClaimAsync(second.Id, player)).Result);
     }
 
     [Fact]

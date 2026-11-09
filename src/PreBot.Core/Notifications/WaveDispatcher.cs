@@ -28,10 +28,14 @@ public interface INotificationChannel
 /// <summary>Runs the next due wave of a listing and hands the result to every notification channel.</summary>
 public sealed class WaveDispatcher(PreService pre, IEnumerable<INotificationChannel> channels, ILogger<WaveDispatcher> logger)
 {
-    public async Task<WaveAlert?> RunAsync(int listingId, CancellationToken ct = default)
+    public async Task<WaveAlert?> RunAsync(int listingId, CancellationToken ct = default) =>
+        await pre.RunNextWaveAsync(listingId, ct) is { } wave ? await DispatchAsync(wave, ct) : null;
+
+    /// <summary>Hands an already chosen set of players (a wave, or one newcomer) to every channel.</summary>
+    public async Task<WaveAlert?> DispatchAsync(WaveResult wave, CancellationToken ct = default)
     {
-        var wave = await pre.RunNextWaveAsync(listingId, ct);
-        if (wave is null || wave.UserIds.Count == 0)
+        var listingId = wave.ListingId;
+        if (wave.UserIds.Count == 0)
         {
             return null;
         }

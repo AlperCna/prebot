@@ -110,6 +110,12 @@
             sen ekle. Gelemeyeceksen lütfen <strong>Vazgeç</strong>'e bas, başkası alsın.
         </div>
     }
+    @if (!insider && !left && l.Status == ListingStatus.Open && _viewerRiotId is null)
+    {
+        <RiotIdPrompt UserId="UserId"
+                      Hint="Katılmak için gerekli: ilan sahibi seni oyunda bununla davet edecek."
+                      OnSaved="riot => _viewerRiotId = riot" />
+    }
     @if (insider && active && myRiotId is null)
     {
         <RiotIdPrompt UserId="UserId"
@@ -168,6 +174,7 @@
     [SupplyParameterFromQuery] public string? Katil { get; set; }
 
     private ListingView? _view;
+    private string? _viewerRiotId;
     private IReadOnlyDictionary<ulong, string> _names = new Dictionary<ulong, string>();
     private bool _busy;
     private string? _shareState;
@@ -181,6 +188,7 @@
 
     private async Task LoadViewAsync()
     {
+        _viewerRiotId = await Pre.GetRiotIdAsync(UserId);
         _view = await Pre.GetListingViewAsync(Id);
         if (_view is not null && _view.Listing.GuildId != Communities.Web)
         {
@@ -239,6 +247,8 @@
         {
             ClaimResult.Claimed or ClaimResult.ClaimedAndFilled => null,
             ClaimResult.RateLimited => ActionLimiter.RetryMessage(outcome.RetryAfter),
+            ClaimResult.NeedsRiotId => "Katılmak için önce Riot ID'ni kaydet; ilan sahibi seni oyunda onunla davet edecek.",
+            ClaimResult.HoldsOtherSeat => "Başka bir açık ilanda yerin var. Önce oradan vazgeç.",
             ClaimResult.Full => "Biri senden önce davrandı, kadro doldu.",
             ClaimResult.AlreadyJoined => "Bu ilandan daha önce ayrıldın, tekrar katılamazsın.",
             _ => "Bu ilan artık açık değil.",

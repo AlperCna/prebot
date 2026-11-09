@@ -122,6 +122,7 @@ public sealed class FeedTests : IDisposable
         var player = (await accounts.GetOrCreateAsync("dev", "player2", "Player")).UserId;
         var actions = _factory.Services.GetRequiredService<PoolActions>();
         var id = (await actions.CreateListingAsync(host, Role.Mid, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id;
+        await _factory.Services.GetRequiredService<PreService>().SetRiotIdAsync(player, "Player#TR1");
 
         await actions.ClaimAsync(id, player);
         await _feed.WaitForUpdatesAsync(id, 1, TimeSpan.FromSeconds(5));

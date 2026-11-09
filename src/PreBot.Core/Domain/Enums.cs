@@ -70,6 +70,12 @@ public enum ClaimResult
 
     /// <summary>Too many joins in a short time (see <c>ActionLimiter</c>).</summary>
     RateLimited,
+
+    /// <summary>The player already holds a seat in another open listing.</summary>
+    HoldsOtherSeat,
+
+    /// <summary>No Riot ID saved: the host could not invite them.</summary>
+    NeedsRiotId,
 }
 
 public enum LeaveResult

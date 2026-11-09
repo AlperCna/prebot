@@ -10,6 +10,10 @@ public sealed record MatchCriteria(Role Role, Rank MinRank, Rank MaxRank, ulong 
 /// </summary>
 public static class Matcher
 {
+    /// <summary>
+    /// Waves 0..2 widen step by step; after that the listing keeps "listening" with the widest settings
+    /// (every 3 minutes, only people who were not asked yet) until it fills or expires.
+    /// </summary>
     public const int MaxWaves = 3;
 
     /// <summary>How many people to notify in a wave (0-based).</summary>
@@ -36,13 +40,17 @@ public static class Matcher
     };
 
     /// <summary>
-    /// Rank range used in a wave. Widening never reaches Master+ unless the host asked for it,
-    /// because a Master+ player forces everyone in a Flex party to be at least Emerald.
+    /// Rank range used in a wave. Widening never reaches Master+ unless the host asked for it, and when
+    /// the host did ask for Master+ it never widens below Emerald: a Master+ player in a Flex party
+    /// requires everyone to be at least Emerald.
     /// </summary>
     public static (Rank Min, Rank Max) WidenedRange(MatchCriteria criteria, int wave)
     {
         var widen = WidenBy(wave);
-        var min = (Rank)Math.Max((int)Rank.Iron, (int)criteria.MinRank - widen);
+        var floor = criteria.MaxRank == Rank.MasterPlus
+            ? (int)(criteria.MinRank < Rank.Emerald ? criteria.MinRank : Rank.Emerald)
+            : (int)Rank.Iron;
+        var min = (Rank)Math.Max(floor, (int)criteria.MinRank - widen);
         var cap = criteria.MaxRank == Rank.MasterPlus ? Rank.MasterPlus : Rank.Diamond;
         var max = (Rank)Math.Min((int)cap, (int)criteria.MaxRank + widen);
         return (min, max);
@@ -62,16 +70,18 @@ public static class Matcher
     }
 
     /// <summary>
-    /// Picks who to notify in this wave. Order: closest rank, exact role before "Fill",
-    /// then whoever has been waiting longest (fairness).
+    /// Picks who to notify in this wave. Order: players we can actually reach first (when known),
+    /// then closest rank, exact role before "Fill", then whoever has been waiting longest (fairness).
     /// </summary>
+    /// <param name="reachable">Players with a push device or a Discord DM route; null = everyone is reachable.</param>
     public static IReadOnlyList<Availability> FindCandidates(
         IEnumerable<Availability> pool,
         MatchCriteria criteria,
         int wave,
         DateTime nowUtc,
         TimeSpan pingCooldown,
-        IReadOnlySet<ulong> excludedUserIds)
+        IReadOnlySet<ulong> excludedUserIds,
+        IReadOnlySet<ulong>? reachable = null)
     {
         var (min, max) = WidenedRange(criteria, wave);
 
@@ -81,7 +91,8 @@ public static class Matcher
             .Where(a => RoleFits(criteria.Role, a.Role))
             .Where(a => a.Rank >= min && a.Rank <= max)
             .Where(a => a.LastPingedAtUtc is null || nowUtc - a.LastPingedAtUtc.Value >= pingCooldown)
-            .OrderBy(a => RankDistance(a.Rank, criteria.MinRank, criteria.MaxRank))
+            .OrderBy(a => reachable is null || reachable.Contains(a.UserId) ? 0 : 1)
+            .ThenBy(a => RankDistance(a.Rank, criteria.MinRank, criteria.MaxRank))
             .ThenBy(a => a.Role == criteria.Role ? 0 : 1)
             .ThenBy(a => a.CreatedAtUtc)
             .ThenBy(a => a.UserId)

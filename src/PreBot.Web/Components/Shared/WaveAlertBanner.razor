@@ -101,6 +101,8 @@
         _messages[listingId] = outcome.Result switch
         {
             ClaimResult.RateLimited => ActionLimiter.RetryMessage(outcome.RetryAfter),
+            ClaimResult.NeedsRiotId => "Katılmak için önce Riot ID'ni kaydet; ilan sahibi seni oyunda onunla davet edecek.",
+            ClaimResult.HoldsOtherSeat => "Başka bir açık ilanda yerin var. Önce oradan vazgeç.",
             ClaimResult.Full => "Biri senden önce davrandı, kadro doldu.",
             ClaimResult.AlreadyJoined => "Bu ilandan daha önce ayrıldın, tekrar katılamazsın.",
             _ => "Bu ilan artık açık değil.",

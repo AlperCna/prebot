@@ -69,8 +69,28 @@ public class MatcherTests
         var criteria = Support(Rank.Emerald, Rank.Diamond);
         Assert.Equal((Rank.Gold, Rank.Diamond), Matcher.WidenedRange(criteria, 2));
 
+        // With Master+ in range everyone must be at least Emerald, so widening stops there.
         var withMaster = Support(Rank.Diamond, Rank.MasterPlus);
-        Assert.Equal((Rank.Platinum, Rank.MasterPlus), Matcher.WidenedRange(withMaster, 2));
+        Assert.Equal((Rank.Emerald, Rank.MasterPlus), Matcher.WidenedRange(withMaster, 2));
+
+        // The host's own lower bound is kept, it just never widens further down.
+        var lowWithMaster = Support(Rank.Gold, Rank.MasterPlus);
+        Assert.Equal((Rank.Gold, Rank.MasterPlus), Matcher.WidenedRange(lowWithMaster, 2));
+    }
+
+    [Fact]
+    public void Reachable_players_are_asked_first()
+    {
+        var now = new DateTime(2026, 11, 9, 20, 0, 0, DateTimeKind.Utc);
+        var pool = new[]
+        {
+            new Availability { UserId = 10, Role = Role.Support, Rank = Rank.Gold, ExpiresAtUtc = now.AddHours(1), CreatedAtUtc = now.AddMinutes(-30) },
+            new Availability { UserId = 11, Role = Role.Support, Rank = Rank.Gold, ExpiresAtUtc = now.AddHours(1), CreatedAtUtc = now.AddMinutes(-5) },
+        };
+
+        var picked = Matcher.FindCandidates(pool, Support(Rank.Gold, Rank.Gold), 0, now, TimeSpan.FromMinutes(3), new HashSet<ulong>(), reachable: new HashSet<ulong> { 11 });
+
+        Assert.Equal([11UL, 10UL], picked.Select(a => a.UserId)); // 10 waited longer but has no push device
     }
 
     [Fact]

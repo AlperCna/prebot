@@ -166,6 +166,38 @@ public sealed class PreServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Listing_keeps_looking_for_newcomers_after_the_widening_waves_until_it_expires()
+    {
+        var id = await OpenListingAsync(min: Rank.Gold, max: Rank.Gold);
+        for (var i = 0; i < Matcher.MaxWaves; i++)
+        {
+            await _t.Service.RunNextWaveAsync(id);
+            _t.Time.Advance(Matcher.DelayAfterWave(i));
+        }
+
+        // Minute 5+: someone new shows up. The listing still has 10 minutes; they must hear about it.
+        await AvailableAsync(30, Role.Support, Rank.Gold);
+        var late = await _t.Service.RunNextWaveAsync(id);
+
+        Assert.Equal([30UL], late!.UserIds);
+        Assert.Equal(Matcher.MaxWaves, late.Wave);
+    }
+
+    [Fact]
+    public async Task Each_worker_only_expires_its_own_communitys_listings()
+    {
+        var guildListing = await OpenListingAsync();
+        var web = (await _t.Service.CreateListingAsync(Communities.Web, Communities.Web, 2, Role.Mid, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id;
+        _t.Time.Advance(TimeSpan.FromMinutes(16));
+
+        var discordSweep = await _t.Service.SweepAsync(exceptCommunity: Communities.Web);
+        var webSweep = await _t.Service.SweepAsync(onlyCommunity: Communities.Web);
+
+        Assert.Equal([guildListing], discordSweep.ExpiredListingIds);
+        Assert.Equal([web], webSweep.ExpiredListingIds); // the web worker still sees it, so the host gets the push
+    }
+
+    [Fact]
     public async Task Sweep_expires_old_availability_and_open_listings_but_keeps_filled()
     {
         await AvailableAsync(10);

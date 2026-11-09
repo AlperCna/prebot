@@ -26,7 +26,7 @@ public sealed class PoolWorker(
         {
             try
             {
-                var sweep = await pre.SweepAsync(stoppingToken);
+                var sweep = await pre.SweepAsync(onlyCommunity: Communities.Web, ct: stoppingToken);
                 var changed = sweep.ExpiredAvailabilities > 0 || sweep.ExpiredListingIds.Count > 0;
 
                 foreach (var listingId in sweep.ExpiredListingIds)

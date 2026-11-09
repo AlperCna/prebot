@@ -16,6 +16,9 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
     /// <summary>"Katıl" button on Discord announcements and DMs of website listings.</summary>
     public const string JoinPrefix = "web:join:";
 
+    /// <summary>Riot ID form shown when someone without a Riot ID presses "Katıl".</summary>
+    public const string RiotIdModalPrefix = "web:riot:";
+
     private const string PrivacyNotice =
         "🔒 **Gizlilik:** PreBot, Discord kimliğinle bir PreBot hesabı açar ve yalnızca görünen adını, seçtiğin " +
         "rol/rank'ı, müsaitlik süreni, ilanlarını ve istersen Riot ID'ni saklar; yalnızca takım arkadaşı bulmak için. " +
@@ -171,8 +174,39 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
             return;
         }
 
+        var me = await MeAsync();
+        if (await pool.GetRiotIdAsync(me) is null)
+        {
+            // The host needs it to invite them: ask first, then take the seat (see RiotIdAndJoinAsync).
+            await RespondWithModalAsync<RiotIdModal>(RiotIdModalPrefix + listingId);
+            return;
+        }
+
+        await DeferAsync(ephemeral: true);
+        await ClaimAndReplyAsync(listingId, me);
+    }
+
+    [ModalInteraction(RiotIdModalPrefix + "*", ignoreGroupNames: true)]
+    public async Task RiotIdAndJoinAsync(string id, RiotIdModal modal)
+    {
+        if (!int.TryParse(id, out var listingId))
+        {
+            return;
+        }
+
         await DeferAsync(ephemeral: true);
         var me = await MeAsync();
+        if (!await pool.SetRiotIdAsync(me, modal.RiotId))
+        {
+            await FollowupAsync("Bu bir Riot ID'ye benzemiyor. `İsim#ETİKET` biçiminde yaz, ör. `Oyuncu#TR1`, sonra tekrar **Katıl**'a bas.", ephemeral: true);
+            return;
+        }
+
+        await ClaimAndReplyAsync(listingId, me);
+    }
+
+    private async Task ClaimAndReplyAsync(int listingId, ulong me)
+    {
         var outcome = await pool.ClaimAsync(listingId, me);
         var message = outcome.Result switch
         {
@@ -181,6 +215,8 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
             ClaimResult.AlreadyJoined => "Bu ilana zaten katıldın (ya da daha önce ayrıldın).",
             ClaimResult.Full => "Maalesef biri senden önce davrandı, kadro doldu.",
             ClaimResult.RateLimited => ActionLimiter.RetryMessage(outcome.RetryAfter),
+            ClaimResult.NeedsRiotId => "Önce `/profil` ile Riot ID'ni kaydet, sonra tekrar **Katıl**'a bas.",
+            ClaimResult.HoldsOtherSeat => "Başka bir açık ilanda yerin var; önce oradan vazgeç.",
             _ => "Bu ilan artık açık değil.",
         };
 
@@ -194,11 +230,8 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
         var host = view?.HostRiotId is { } riot
             ? $"İlan sahibinin Riot ID'si: `{riot}` — istersen sen de ekleyebilirsin."
             : "İlan sahibi Riot ID'sini kaydetmemiş.";
-        var mine = await pool.GetRiotIdAsync(me) is null
-            ? "\n⚠️ Senin Riot ID'n kayıtlı değil: hemen `/profil` ile kaydet ki ilan sahibi seni davet edebilsin."
-            : string.Empty;
         await FollowupAsync(
-            $"✅ Yer senin! İlan sahibine haber verdim, seni oyunda davet edecek. {host}{mine}\n" +
+            $"✅ Yer senin! İlan sahibine haber verdim, seni oyunda davet edecek. {host}\n" +
             $"Gelemeyeceksen lütfen ilan sayfasından **Vazgeç**'e bas, başkası alsın: {pool.ListingUrl(listingId)}",
             ephemeral: true);
     }
