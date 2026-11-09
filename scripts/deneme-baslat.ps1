@@ -7,9 +7,12 @@
 # -Tunel tailscale : Cloudflare yerine Tailscale Funnel kullanir. Adres SABIT kalir (ornek
 #                    https://bilgisayar.tailXXXX.ts.net), bilgisayar yeniden baslasa da degismez; bildirimler bozulmaz.
 #                    Once Tailscale kurulup hesapla giris yapilmis olmali.
+#
+# -DavetKodu : Google girisi ayarli olsa da "isim + davet kodu" girisini de acik tutar.
 param(
     [ValidateSet("cloudflare", "tailscale")]
-    [string]$Tunel = "cloudflare"
+    [string]$Tunel = "cloudflare",
+    [switch]$DavetKodu
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,7 +26,7 @@ Write-Host "Site baslatiliyor (ilk seferde derleme 1-2 dakika surebilir)..." -Fo
 $siteLog = Join-Path $data "site.log"
 Start-Process powershell -WindowStyle Minimized -ArgumentList @(
     "-ExecutionPolicy", "Bypass", "-Command",
-    "& '$PSScriptRoot\deneme-sitesi.ps1' *> '$siteLog'")
+    "& '$PSScriptRoot\deneme-sitesi.ps1' $(if ($DavetKodu) { '-DavetKodu' }) *> '$siteLog'")
 
 $healthy = $false
 for ($i = 0; $i -lt 180; $i++) {
@@ -68,14 +71,24 @@ for ($i = 0; $i -lt 60 -and -not $url; $i++) {
 if (-not $url) { Write-Host "Tunel adresi alinamadi. Ayrintilar: $tunnelLog" -ForegroundColor Red; exit 1 }
 }
 
+$login = (Get-Content (Join-Path $data "giris.txt") -Raw -ErrorAction SilentlyContinue)
 $code = (Get-Content (Join-Path $data "davet-kodu.txt") -Raw).Trim()
+$signIn = if ("$login".Trim() -eq "google") {
+@"
+2) "Google ile giris"e bas (kutucugu isaretle). Google'dan yalnizca adini aliyoruz, e-postani almiyoruz.
+"@
+} else {
+@"
+2) Davet kodu: $code  - adini ve kendine bir sifre yaz, kutucugu isaretle, gir
+   (sifreyi ilk giriste sen belirlersin; baska yerde kullandigin sifre olmasin)
+"@
+}
 $message = @"
 PreBot denemesi: Flex'te 4 kisi kalinca 5. kisiyi bulmak icin yaptigim site.
 
 1) Telefondan ac: $url
    (iPhone'da Safari -> Paylas -> Ana Ekrana Ekle, sonra ana ekrandan ac; yoksa bildirim gelmez)
-2) Davet kodu: $code  - adini ve kendine bir sifre yaz, kutucugu isaretle, gir
-   (sifreyi ilk giriste sen belirlersin; baska yerde kullandigin sifre olmasin)
+$signIn
 3) Riot ID'ni kaydet ve "Bildirimleri ac"a bas
 4) Havuz sayfasinda "Aksamlari bana haber ver"e bas (bir kez yeter);
    o an oynayabiliyorsan "Su an musaitim" de, once sana sorulsun.
@@ -88,7 +101,7 @@ Set-Content -Path $messageFile -Value $message -Encoding utf8
 
 Write-Host ""
 Write-Host "Hazir! Adres: $url" -ForegroundColor Green
-Write-Host "Davet kodu: $code" -ForegroundColor Green
+if ("$login".Trim() -eq "google") { Write-Host "Giris: Google ile" -ForegroundColor Green } else { Write-Host "Davet kodu: $code" -ForegroundColor Green }
 Write-Host "Arkadaslarina gonderilecek mesaj ($messageFile):" -ForegroundColor Green
 Write-Host ""
 Write-Host $message

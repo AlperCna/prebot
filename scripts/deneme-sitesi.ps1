@@ -3,14 +3,17 @@
 # Sonra ikinci bir pencerede tuneli ac (internetten erisilsin diye):
 #   powershell -ExecutionPolicy Bypass -File .\scripts\deneme-tuneli.ps1
 #
-# - Giris "davet kodu + isim + sifre" ile (Google ayari gerekmez). Kod ilk calistirmada uretilir ve saklanir.
+# - Giris: giris-ayarla.ps1 ile Google anahtari kaydedildiyse "Google ile giris" (anahtar ekranda gorunmez,
+#   dosyaya yazilmaz). Kaydedilmediyse ya da -DavetKodu verilirse "davet kodu + isim + sifre".
 # - Deneme sitesi 5290 portunda calisir; gelistirme (dotnet run) 5215'te kalir, tunel ona hic baglanmaz.
 # - Veriler %LOCALAPPDATA%\PreBot-deneme klasorunde, gelistirme verilerinden ayri.
 # - Discord botu kapali (denemede Discord'a hicbir sey gonderilmez).
 param(
     [string]$Kod,
     # Your user number (Profil sayfasinda yazar), so you can open /yonetim. Kept for later runs.
-    [string]$Yonetici
+    [string]$Yonetici,
+    # Keep "name + invite code" sign-in even when Google sign-in is set up.
+    [switch]$DavetKodu
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +34,16 @@ function New-InviteCode {
     }
     return "flex-" + (-join $chars[0..3]) + "-" + (-join $chars[4..7]) + "-" + (-join $chars[8..11])
 }
+
+# Google sign-in keys saved by giris-ayarla.ps1 (user-secrets of PreBot.Web). Production mode does not read
+# user-secrets by itself, so they are handed to the site process here. Never printed.
+$google = @{}
+foreach ($line in (dotnet user-secrets list --project "$root\src\PreBot.Web" 2>$null)) {
+    if ($line -match '^Authentication:Google:(ClientId|ClientSecret) = (.+)$') { $google[$Matches[1]] = $Matches[2].Trim() }
+}
+$useGoogle = $google.ClientId -and $google.ClientSecret
+$useInvite = $DavetKodu -or $Kod -or -not $useGoogle
+Set-Content -Path (Join-Path $data "giris.txt") -Value $(if ($useInvite) { "kod" } else { "google" }) -Encoding ascii
 
 $codeFile = Join-Path $data "davet-kodu.txt"
 if ($Kod) {
@@ -58,7 +71,12 @@ if ($LASTEXITCODE -ne 0) { Write-Host "Derleme basarisiz." -ForegroundColor Red;
 $env:ASPNETCORE_ENVIRONMENT = "Production"
 $env:ASPNETCORE_URLS = "http://localhost:5290"
 $env:DataDirectory = $data
-$env:Site__InviteCode = $Kod
+$env:Site__InviteCode = $(if ($useInvite) { $Kod } else { "" })
+if ($useGoogle) {
+    $env:Authentication__Google__ClientId = $google.ClientId
+    $env:Authentication__Google__ClientSecret = $google.ClientSecret
+}
+Remove-Variable google
 $env:Site__OperatorName = "PreBot deneme grubu"
 $env:Site__HostingLocation = "Turkiye (gelistiricinin bilgisayari, gecici deneme)"
 $env:Discord__Enabled = "false"
@@ -68,7 +86,8 @@ $env:Site__AdminUserIds = $Yonetici
 $env:ReverseProxy__AssumeHttps = "true"
 
 Write-Host ""
-Write-Host "Davet kodu: $Kod" -ForegroundColor Green
+if ($useGoogle) { Write-Host "Giris: Google ile" -ForegroundColor Green }
+if ($useInvite) { Write-Host "Davet kodu: $Kod" -ForegroundColor Green }
 Write-Host "Site: http://localhost:5290  (internetten erisim icin deneme-tuneli.ps1'i ac)" -ForegroundColor Green
 Write-Host "Durdurmak icin Ctrl+C." -ForegroundColor DarkGray
 Write-Host ""
