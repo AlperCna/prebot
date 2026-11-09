@@ -50,6 +50,9 @@
                 }
             </select>
         </div>
+        <div class="col-12 text-dim small" style="margin-top:0.25rem">
+            Flex'te Elmas ve altında rank sınırı yok. Aralığı daraltırsan daha az kişiye haber gider.
+        </div>
         <div class="col-12">
             <label class="form-label">Not (isteğe bağlı)</label>
             <input class="form-control" maxlength="200" placeholder="ör. mikrofon şart, eğlencesine oynuyoruz" @bind="_note" />
@@ -73,8 +76,9 @@
 
 @code {
     private Role _role = Role.Support;
-    private Rank _min = Rank.Gold;
-    private Rank _max = Rank.Platinum;
+    // Wide by default: Flex has no rank limit up to Diamond, and a narrow range only shrinks a small pool.
+    private Rank _min = Rank.Iron;
+    private Rank _max = Rank.Diamond;
     private int _slots = 1;
     private string? _note;
     private string? _riotId;

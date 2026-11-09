@@ -457,9 +457,48 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             });
         }
 
+        // Nobody fits this wave, but the wider next wave already has someone: don't make the host wait
+        // minutes for nothing. If the wider wave is empty too, keep the normal delay so players who
+        // become available in the meantime are still caught.
+        var skipAhead = notify.Count == 0
+            && nextWaveAt is not null
+            && await NextWaveHasCandidatesAsync(db, listing, criteria, wave + 1, pool, excluded, now, ct);
+        if (skipAhead)
+        {
+            await db.Listings
+                .Where(l => l.Id == listingId)
+                .ExecuteUpdateAsync(s => s.SetProperty(l => l.NextWaveAtUtc, now), ct);
+        }
+
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return new WaveResult(listingId, wave, notify);
+        return skipAhead
+            ? await RunNextWaveAsync(listingId, ct) ?? new WaveResult(listingId, wave, notify)
+            : new WaveResult(listingId, wave, notify);
+    }
+
+    private async Task<bool> NextWaveHasCandidatesAsync(
+        PreBotDbContext db,
+        Listing listing,
+        MatchCriteria criteria,
+        int wave,
+        IReadOnlyList<Availability> pool,
+        IReadOnlySet<ulong> excluded,
+        DateTime now,
+        CancellationToken ct)
+    {
+        if (Matcher.FindCandidates(pool, criteria, wave, now, PingCooldown, excluded).Count > 0)
+        {
+            return true;
+        }
+
+        var localNow = TurkeyTime.ToLocal(now);
+        var subscriptions = await db.AlertSubscriptions.AsNoTracking()
+            .Where(s => s.CommunityId == listing.GuildId && s.Enabled)
+            .ToListAsync(ct);
+        return Matcher.FindAlertCandidates(
+            subscriptions, criteria, wave, now, localNow,
+            TimeSpan.FromMinutes(options.AlertCooldownMinutes), options.AlertDailyLimit, excluded).Count > 0;
     }
 
     /// <summary>

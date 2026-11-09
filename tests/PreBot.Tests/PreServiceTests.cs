@@ -138,6 +138,34 @@ public sealed class PreServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Empty_wave_skips_ahead_when_the_wider_wave_has_someone()
+    {
+        await AvailableAsync(11, Role.Support, Rank.Silver); // only fits the widened range
+        var id = await OpenListingAsync(min: Rank.Gold, max: Rank.Gold);
+
+        var wave = await _t.Service.RunNextWaveAsync(id);
+
+        Assert.NotNull(wave);
+        Assert.Equal(1, wave!.Wave);
+        Assert.Equal([11UL], wave.UserIds);
+    }
+
+    [Fact]
+    public async Task Empty_wave_keeps_waiting_when_nobody_fits_yet_so_late_arrivals_are_caught()
+    {
+        var id = await OpenListingAsync(min: Rank.Gold, max: Rank.Gold);
+
+        var wave0 = await _t.Service.RunNextWaveAsync(id);
+        Assert.Empty(wave0!.UserIds);
+        Assert.Null(await _t.Service.RunNextWaveAsync(id)); // wave 1 not due yet
+
+        await AvailableAsync(11, Role.Support, Rank.Silver);
+        _t.Time.Advance(Matcher.DelayAfterWave(0));
+        var wave1 = await _t.Service.RunNextWaveAsync(id);
+        Assert.Equal([11UL], wave1!.UserIds);
+    }
+
+    [Fact]
     public async Task Sweep_expires_old_availability_and_open_listings_but_keeps_filled()
     {
         await AvailableAsync(10);
