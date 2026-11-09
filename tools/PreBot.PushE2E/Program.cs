@@ -154,9 +154,25 @@ try
         Console.WriteLine($"       bildirimler: {await player.NotificationTitlesAsync()}");
     });
 
-    await Step("Bildirimdeki 'Katıl' bağlantısı yeri kapar", async () =>
+    await Step("Kopyalanan ?katil bağlantısı başkasını ilana oturtmaz", async () =>
     {
+        // A forged or forwarded link without this player's personal token must not claim a seat.
         await player.NavigateAsync($"{baseUrl}/ilan/{listingId}?katil=1");
+        await player.WaitForAsync("!location.search.includes('katil')", TimeSpan.FromSeconds(10));
+        await player.WaitForTextAsync("Katıl");
+        var text = (await player.EvalAsync("document.body.innerText"))!.GetValue<string>();
+        if (text.Contains("İlan sahibi seni oyunda davet edecek"))
+        {
+            throw new InvalidOperationException("Tokensız bağlantı yeri kaptı.");
+        }
+    });
+
+    await Step("Bildirimdeki kişisel 'Katıl' bağlantısı yeri kapar", async () =>
+    {
+        var joinUrl = (await player.EvalAsync(
+            "navigator.serviceWorker.ready.then(r => r.getNotifications()).then(ns => ns.find(n => n.title.includes('Destek lazım')).data.joinUrl)"))!
+            .GetValue<string>();
+        await player.NavigateAsync(new Uri(new Uri(baseUrl), joinUrl).ToString());
         await player.WaitForTextAsync("İlan sahibi seni oyunda davet edecek");
         await player.WaitForAsync("!location.search.includes('katil')", TimeSpan.FromSeconds(10));
     });

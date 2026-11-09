@@ -40,6 +40,7 @@ builder.Services.AddSingleton<LiveUpdates>();
 builder.Services.AddSingleton<SubscriptionService>();
 builder.Services.AddSingleton<VapidKeys>();
 builder.Services.AddHttpClient("webpush", c => c.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddSingleton<JoinTokens>();
 builder.Services.AddSingleton<PushSender>();
 builder.Services.AddSingleton<HostNotifier>();
 builder.Services.AddSingleton<INotificationChannel, InAppChannel>();   // open pages

@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inherits UserComponentBase
 @inject IJSRuntime JS
+@inject PreBot.Web.Push.JoinTokens JoinTokens
 
 <PageTitle>İlan · PreBot</PageTitle>
 
@@ -153,8 +154,12 @@
     [Parameter] public int Id { get; set; }
     [SupplyParameterFromQuery] public int? Yeni { get; set; }
 
-    /// <summary>?katil=1 comes from the notification's "Katıl" button: join right away.</summary>
-    [SupplyParameterFromQuery] public int? Katil { get; set; }
+    /// <summary>
+    /// ?katil={token} comes from the notification's "Katıl" button. The token is personal and short-lived,
+    /// so only the player the notification was sent to is seated in one tap; anyone else who opens a
+    /// copied link just sees the listing and its normal "Katıl" button.
+    /// </summary>
+    [SupplyParameterFromQuery] public string? Katil { get; set; }
 
     private ListingView? _view;
     private IReadOnlyDictionary<ulong, string> _names = new Dictionary<ulong, string>();
@@ -186,12 +191,12 @@
     private bool _autoJoinDone;
 
     /// <summary>
-    /// Handles ?katil=1 once the listing is loaded — only in the live (interactive) render, never during
+    /// Handles ?katil={token} once the listing is loaded — only in the live (interactive) render, never during
     /// prerendering, so the seat is claimed exactly once.
     /// </summary>
     private async Task AutoJoinFromNotificationAsync()
     {
-        if (Katil != 1 || _autoJoinDone || !RendererInfo.IsInteractive || _view is null)
+        if (Katil is null || _autoJoinDone || !RendererInfo.IsInteractive || _view is null)
         {
             return;
         }
@@ -201,7 +206,7 @@
         var alreadyIn = l.HostUserId == UserId
             || _view.ActiveSlots.Any(s => s.UserId == UserId)
             || _view.LeftUserIds.Contains(UserId);
-        if (l.Status == ListingStatus.Open && !alreadyIn)
+        if (l.Status == ListingStatus.Open && !alreadyIn && JoinTokens.IsValid(Katil, Id, UserId))
         {
             await JoinAsync();
         }

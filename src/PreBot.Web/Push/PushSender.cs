@@ -20,7 +20,11 @@ public sealed class PushSender(
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     /// <summary>Returns how many devices accepted the message.</summary>
-    public async Task<int> SendAsync(IEnumerable<ulong> userIds, PushPayload payload, TimeSpan timeToLive, string? topic, CancellationToken ct = default)
+    public Task<int> SendAsync(IEnumerable<ulong> userIds, PushPayload payload, TimeSpan timeToLive, string? topic, CancellationToken ct = default) =>
+        SendAsync(userIds, _ => payload, timeToLive, topic, ct);
+
+    /// <summary>Same, with a payload per user (e.g. a personal join link). Returns how many devices accepted it.</summary>
+    public async Task<int> SendAsync(IEnumerable<ulong> userIds, Func<ulong, PushPayload> payloadFor, TimeSpan timeToLive, string? topic, CancellationToken ct = default)
     {
         var devices = await subscriptions.GetPushSubscriptionsAsync(userIds, ct);
         if (devices.Count == 0)
@@ -32,14 +36,15 @@ public sealed class PushSender(
         {
             DefaultAuthentication = new VapidAuthentication(keys.PublicKey, keys.PrivateKey) { Subject = keys.Subject },
         };
-        var body = JsonSerializer.Serialize(payload, Json);
+        var bodies = devices.Select(d => d.UserId).Distinct()
+            .ToDictionary(id => id, id => JsonSerializer.Serialize(payloadFor(id), Json));
 
         var results = await Task.WhenAll(devices.Select(async device =>
         {
             var subscription = new PushSubscription { Endpoint = device.Endpoint };
             subscription.SetKey(PushEncryptionKeyName.P256DH, device.P256dh);
             subscription.SetKey(PushEncryptionKeyName.Auth, device.Auth);
-            var message = new PushMessage(body)
+            var message = new PushMessage(bodies[device.UserId])
             {
                 // High urgency + short TTL: "your group needs you now" is worthless 2 minutes later.
                 Urgency = PushMessageUrgency.High,
@@ -78,10 +83,11 @@ public sealed class PushSender(
             topic: null,
             ct);
 
-    public static PushPayload ForListing(int listingId, Role role, Rank min, Rank max, int missing) => new(
+    /// <param name="joinToken">Personal token from <see cref="JoinTokens"/>; without it the link only opens the listing.</param>
+    public static PushPayload ForListing(int listingId, Role role, Rank min, Rank max, int missing, string? joinToken = null) => new(
         $"📣 {TurkishNames.Of(role)} lazım!",
         $"{TurkishNames.RankRange(min, max)} · {missing} kişi eksik. İlk basan alır.",
         $"/ilan/{listingId}",
-        $"/ilan/{listingId}?katil=1",
+        joinToken is null ? null : $"/ilan/{listingId}?katil={Uri.EscapeDataString(joinToken)}",
         $"listing-{listingId}");
 }
