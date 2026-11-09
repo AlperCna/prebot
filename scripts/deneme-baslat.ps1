@@ -3,6 +3,14 @@
 #   powershell -ExecutionPolicy Bypass -File .\scripts\deneme-baslat.ps1
 # Durdurmak icin:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\deneme-durdur.ps1
+#
+# -Tunel tailscale : Cloudflare yerine Tailscale Funnel kullanir. Adres SABIT kalir (ornek
+#                    https://bilgisayar.tailXXXX.ts.net), bilgisayar yeniden baslasa da degismez; bildirimler bozulmaz.
+#                    Once Tailscale kurulup hesapla giris yapilmis olmali.
+param(
+    [ValidateSet("cloudflare", "tailscale")]
+    [string]$Tunel = "cloudflare"
+)
 
 $ErrorActionPreference = "Stop"
 $data = Join-Path $env:LOCALAPPDATA "PreBot-deneme"
@@ -26,6 +34,16 @@ for ($i = 0; $i -lt 180; $i++) {
 }
 if (-not $healthy) { Write-Host "Site acilamadi. Ayrintilar: $siteLog" -ForegroundColor Red; exit 1 }
 
+if ($Tunel -eq "tailscale") {
+    $ts = (Get-Command tailscale -ErrorAction SilentlyContinue).Source
+    if (-not $ts) { $ts = Join-Path $env:ProgramFiles "Tailscale\tailscale.exe" }
+    if (-not (Test-Path $ts)) { Write-Host "Tailscale kurulu degil: https://tailscale.com/download/windows" -ForegroundColor Red; exit 1 }
+
+    # --bg: the funnel stays configured across restarts; only the site has to be started again.
+    & $ts funnel --bg 5215
+    $url = (& $ts funnel status | Select-String -Pattern "https://[a-z0-9.-]+\.ts\.net" | Select-Object -First 1).Matches[0].Value
+    if (-not $url) { Write-Host "Funnel adresi alinamadi. 'tailscale funnel status' ciktisina bak." -ForegroundColor Red; exit 1 }
+} else {
 # The tunnel script downloads cloudflared on first use; run it once in the foreground if it is missing.
 $exe = Join-Path $data "cloudflared.exe"
 if (-not (Test-Path $exe)) {
@@ -47,6 +65,7 @@ for ($i = 0; $i -lt 60 -and -not $url; $i++) {
     }
 }
 if (-not $url) { Write-Host "Tunel adresi alinamadi. Ayrintilar: $tunnelLog" -ForegroundColor Red; exit 1 }
+}
 
 $code = (Get-Content (Join-Path $data "davet-kodu.txt") -Raw).Trim()
 $message = @"

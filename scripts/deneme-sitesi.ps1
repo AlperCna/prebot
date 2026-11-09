@@ -48,6 +48,8 @@ $env:Site__HostingLocation = "Turkiye (gelistiricinin bilgisayari, gecici deneme
 $env:Discord__Enabled = "false"
 $env:Backup__Enabled = "false"
 $env:Site__AdminUserIds = $Yonetici
+# The site is only reached through an HTTPS tunnel (Cloudflare / Tailscale): always build https:// links.
+$env:ReverseProxy__AssumeHttps = "true"
 
 Write-Host ""
 Write-Host "Davet kodu: $Kod" -ForegroundColor Green

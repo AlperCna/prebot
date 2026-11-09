@@ -31,7 +31,7 @@ public sealed class ExternalLoginTests : IDisposable
         }
     }
 
-    private WebApplicationFactory<Program> Factory(bool configured, string environment = "Production")
+    private WebApplicationFactory<Program> Factory(bool configured, string environment = "Production", bool assumeHttps = false)
     {
         var (pub, priv) = VapidKeys.Generate();
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
@@ -46,6 +46,11 @@ public sealed class ExternalLoginTests : IDisposable
             b.UseSetting("DataDirectory", Path.GetTempPath());
             b.UseSetting("Push:PublicKey", pub);
             b.UseSetting("Push:PrivateKey", priv);
+            if (assumeHttps)
+            {
+                b.UseSetting("ReverseProxy:AssumeHttps", "true");
+            }
+
             if (configured)
             {
                 b.UseSetting("Authentication:Google:ClientId", "test-google-id");
@@ -73,6 +78,16 @@ public sealed class ExternalLoginTests : IDisposable
         Assert.Contains("redirect_uri=http://localhost/signin-google", location);
         Assert.Contains("scope=openid profile", location);
         Assert.DoesNotContain("email", location);
+    }
+
+    [Fact]
+    public async Task Behind_an_https_tunnel_the_site_builds_https_links()
+    {
+        // The test server is plain http; with AssumeHttps the OAuth return address must still be https.
+        var response = await NoRedirect(Factory(configured: true, assumeHttps: true)).GetAsync("/auth/login/google?kabul=1");
+
+        var location = Uri.UnescapeDataString(response.Headers.Location!.ToString());
+        Assert.Contains("redirect_uri=https://localhost/signin-google", location);
     }
 
     [Fact]

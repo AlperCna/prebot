@@ -25,6 +25,13 @@ foreach ($procId in ($sitePids | Select-Object -Unique)) {
 }
 Remove-Item $pidFile -ErrorAction SilentlyContinue
 
+# Tailscale Funnel (if it was used): stop sharing the site publicly.
+$ts = (Get-Command tailscale -ErrorAction SilentlyContinue).Source
+if (-not $ts) { $ts = Join-Path $env:ProgramFiles "Tailscale\tailscale.exe" }
+if ((Test-Path $ts) -and -not $Sessiz) {
+    & $ts funnel reset 2>$null | Out-Null
+}
+
 if (-not $Sessiz) {
     Write-Host ("Durduruldu: " + $stopped + " islem.") -ForegroundColor Green
 }

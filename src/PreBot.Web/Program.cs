@@ -174,6 +174,17 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
+// Behind a tunnel that terminates HTTPS but may not send X-Forwarded-Proto (e.g. Tailscale Funnel), the app
+// still has to build https:// links (share links, notification links, secure cookies). Only for such setups.
+if (app.Configuration.GetValue("ReverseProxy:AssumeHttps", false))
+{
+    app.Use((context, next) =>
+    {
+        context.Request.Scheme = "https";
+        return next();
+    });
+}
+
 // Security headers. The CSP is report-only for now: violations show in the browser console without
 // breaking anything; switch to enforcing once a week of real use shows none (HSTS is set by Caddy).
 // Known report today: Blazor's inline <script type="importmap"> needs its sha256 hash in script-src first.
