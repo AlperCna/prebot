@@ -39,6 +39,22 @@ window.prebot = {
         }
     },
 
+    // Opens the phone's share sheet when there is one. Returns "shared", "copied" or "failed".
+    async share(title, text, url) {
+        if (navigator.share) {
+            try {
+                await navigator.share({ title, text, url });
+                return 'shared';
+            } catch (e) {
+                if (e && e.name === 'AbortError') {
+                    return 'cancelled';
+                }
+            }
+        }
+
+        return (await prebot.copy(`${text} ${url}`)) ? 'copied' : 'failed';
+    },
+
     // ---------- Web Push ----------
     push: {
         supported() {

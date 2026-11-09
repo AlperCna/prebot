@@ -93,7 +93,9 @@ public sealed class PushSender(
     /// <param name="joinToken">Personal token from <see cref="JoinTokens"/>; without it the link only opens the listing.</param>
     public static PushPayload ForListing(int listingId, Role role, Rank min, Rank max, int missing, string? joinToken = null) => new(
         $"📣 {TurkishNames.Of(role)} lazım!",
-        $"{TurkishNames.RankRange(min, max)} · {missing} kişi eksik. İlk basan alır.",
+        missing == 1
+            ? $"4 kişi seni bekliyor · {TurkishNames.RankRange(min, max)}. İlk basan alır."
+            : $"{TurkishNames.RankRange(min, max)} · {missing} kişi eksik. İlk basan alır.",
         $"/ilan/{listingId}",
         joinToken is null ? null : $"/ilan/{listingId}?katil={Uri.EscapeDataString(joinToken)}",
         $"listing-{listingId}");

@@ -62,6 +62,7 @@ public sealed partial class WebAppTests : IDisposable
     }
 
     [Theory]
+    [InlineData("/", "og:title")]
     [InlineData("/", "5. kişiyi dakikalar içinde bulun")]
     [InlineData("/giris", "Giriş yap")]
     [InlineData("/gizlilik", "KVKK")]

@@ -66,7 +66,9 @@ public sealed class DiscordDirectMessenger(
     {
         var embed = new EmbedBuilder()
             .WithTitle($"📣 {TurkishNames.Of(alert.Role)} lazım!")
-            .WithDescription($"{TurkishNames.RankRange(alert.MinRank, alert.MaxRank)} · {alert.SlotsMissing} kişi eksik. İlk basan alır.")
+            .WithDescription(alert.SlotsMissing == 1
+                ? $"4 kişi seni bekliyor · {TurkishNames.RankRange(alert.MinRank, alert.MaxRank)}. İlk basan alır."
+                : $"{TurkishNames.RankRange(alert.MinRank, alert.MaxRank)} · {alert.SlotsMissing} kişi eksik. İlk basan alır.")
             .WithColor(new Color(0xC8AA6E))
             .WithFooter(ListingRenderer.Disclaimer)
             .Build();

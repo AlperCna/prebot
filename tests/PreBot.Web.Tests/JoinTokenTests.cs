@@ -45,4 +45,11 @@ public sealed class JoinTokenTests
         Assert.DoesNotContain("katil=1", withToken.JoinUrl);
         Assert.Null(withoutToken.JoinUrl);
     }
+
+    [Fact]
+    public void One_missing_seat_says_four_players_are_waiting()
+    {
+        Assert.StartsWith("4 kişi seni bekliyor", PushSender.ForListing(7, Role.Mid, Rank.Iron, Rank.Diamond, 1).Body);
+        Assert.Contains("2 kişi eksik", PushSender.ForListing(7, Role.Mid, Rank.Iron, Rank.Diamond, 2).Body);
+    }
 }

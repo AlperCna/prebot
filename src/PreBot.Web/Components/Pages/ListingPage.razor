@@ -145,7 +145,12 @@
         }
         @if (l.Status == ListingStatus.Open)
         {
-            <button class="btn btn-outline-light" @onclick="CopyLinkAsync">@(_copied ? "Kopyalandı ✓" : "🔗 Linki paylaş")</button>
+            <button class="btn btn-outline-light" @onclick="ShareAsync">@(_shareState switch
+            {
+                "copied" => "Kopyalandı ✓",
+                "shared" => "Paylaşıldı ✓",
+                _ => "🔗 Paylaş (WhatsApp, Discord…)",
+            })</button>
         }
         <a class="btn btn-link" href="/havuz">Havuza dön</a>
     </div>
@@ -165,7 +170,7 @@
     private ListingView? _view;
     private IReadOnlyDictionary<ulong, string> _names = new Dictionary<ulong, string>();
     private bool _busy;
-    private bool _copied;
+    private string? _shareState;
     private string? _message;
 
     protected override async Task LoadAsync()
@@ -271,8 +276,16 @@
         };
     }
 
-    private async Task CopyLinkAsync()
+    private async Task ShareAsync()
     {
-        _copied = await JS.InvokeAsync<bool>("prebot.copy", Navigation.ToAbsoluteUri($"/ilan/{Id}").ToString());
+        if (_view is null)
+        {
+            return;
+        }
+
+        var l = _view.Listing;
+        var missing = l.SlotsNeeded - l.SlotsFilled;
+        var text = $"Flex için {Format.RoleLabel(l.Role)} lazım ({TurkishNames.RankRange(l.MinRank, l.MaxRank)}), {missing} kişi eksik! İlk basan alır:";
+        _shareState = await JS.InvokeAsync<string>("prebot.share", "PreBot", text, Navigation.ToAbsoluteUri($"/ilan/{Id}").ToString());
     }
 }
