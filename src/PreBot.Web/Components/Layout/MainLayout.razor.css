@@ -1,10 +1,10 @@
 .site-header {
-    background: rgba(11, 18, 32, 0.92);
-    border-bottom: 1px solid var(--pb-border);
+    background: rgba(1, 10, 19, 0.92);
+    border-bottom: 1px solid var(--pb-gold-dim);
     position: sticky;
     top: 0;
     z-index: 10;
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(8px);
 }
 
 .nav-bar {
@@ -16,24 +16,52 @@
 }
 
 .brand {
-    color: var(--pb-gold);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--pb-text);
     font-weight: 700;
-    font-size: 1.15rem;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
     text-decoration: none;
     white-space: nowrap;
+}
+
+.brand:hover {
+    color: var(--pb-text);
+    text-decoration: none;
+}
+
+/* Small mark next to the name: gold frame, our own letter (not a Riot logo). */
+.brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 4px;
+    border: 1px solid var(--pb-gold);
+    background: #1e2328;
+    color: var(--pb-gold);
+    font-size: 0.85rem;
+    font-weight: 800;
 }
 
 .nav-links {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.1rem;
     overflow-x: auto;
 }
 
 .nav-links ::deep a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     color: var(--pb-text-dim);
     text-decoration: none;
     white-space: nowrap;
+    font-size: 0.93rem;
 }
 
 .nav-links ::deep a.active,
@@ -42,7 +70,7 @@
 }
 
 .nav-links ::deep a.btn-gold {
-    color: #111;
+    color: var(--pb-text);
 }
 
 .site-footer {
@@ -50,17 +78,21 @@
     color: var(--pb-text-dim);
     padding: 1.5rem 0 2rem;
     margin-top: 3rem;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .site-footer a {
     color: var(--pb-text-dim);
 }
 
+.site-footer a:hover {
+    color: var(--pb-text);
+}
+
 #blazor-error-ui {
-    background: #5a1a1a;
+    background: #3a1517;
+    border-top: 1px solid var(--pb-danger);
     bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
     display: none;
     left: 0;
     padding: 0.6rem 1.25rem 0.7rem 1.25rem;

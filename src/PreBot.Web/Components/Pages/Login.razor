@@ -28,7 +28,7 @@
         <form method="post" action="/auth/invite-login" data-enhance="false">
             <AntiforgeryToken />
             <input type="hidden" name="returnUrl" value="@(ReturnUrl ?? "/havuz")" />
-            <p class="text-dim small">🎟️ <strong>Davetli deneme.</strong> Sana verilen kodu ve oyundaki gibi tanınacağın bir isim yaz.</p>
+            <p class="text-dim small"><strong>Davetli deneme.</strong> Sana verilen kodu ve oyundaki gibi tanınacağın bir isim yaz.</p>
             <label class="form-label" for="invite-name">Görünen isim</label>
             <input id="invite-name" name="name" class="form-control mb-2" maxlength="32" placeholder="ör. Alper" required />
             <label class="form-label" for="invite-code">Davet kodu</label>
@@ -63,7 +63,7 @@
             {
                 <button type="submit" formaction="/auth/login/@p.Name"
                         class="btn @(p.Name == "google" ? "btn-light" : "btn-outline-light") btn-lg">
-                    @(p.Name == "google" ? "🔵 " : "💬 ")@p.Label
+                    @p.Label
                 </button>
                 @if (p.Hint is not null)
                 {
@@ -87,7 +87,7 @@
             <hr class="my-4" />
         }
         <p class="text-dim small">
-            🧪 <strong>Test girişi</strong> (yalnızca senin bilgisayarında çalışır). Herhangi bir isim yaz.
+            <strong>Test girişi</strong> (yalnızca senin bilgisayarında çalışır). Herhangi bir isim yaz.
             İki farklı tarayıcıda iki farklı isimle girip iki oyuncu gibi deneyebilirsin.
         </p>
         <form method="post" action="/auth/dev-login">

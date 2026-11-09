@@ -13,7 +13,7 @@ function New-Icon([int]$size, [string]$file, [bool]$maskable, [bool]$badge) {
     $g.Clear([System.Drawing.Color]::Transparent)
 
     if (-not $badge) {
-        $bg = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 11, 18, 32))
+        $bg = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 1, 10, 19))
         if ($maskable) {
             # Maskable icons must fill the whole square; the OS applies its own shape.
             $g.FillRectangle($bg, 0, 0, $size, $size)

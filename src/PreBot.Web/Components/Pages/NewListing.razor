@@ -58,12 +58,13 @@
         <div class="col-12">
             <label class="form-label">Oyunda özel lobi de açacak mısın?</label>
             <select class="form-select" @bind="_lobby">
-                <option value="acik">Evet, herkese açık (oyunda lobi listesine bakanlar da girebilsin)</option>
-                <option value="sifreli">Evet, şifreli (yalnızca PreBot'tan haber alanlar girebilsin)</option>
-                <option value="yok">Hayır, yalnızca PreBot</option>
+                <option value="acik">Evet, herkese açık</option>
+                <option value="sifreli">Evet, şifreli</option>
+                <option value="yok">Hayır</option>
             </select>
             <div class="form-text text-dim">
-                Bildirimde lobinin adı yazar; o an oyunda olan biri lobine direkt girer. İki yol aynı anda çalışır.
+                Bildirimde lobinin adı yazar; o an oyunda olan biri lobine direkt girer. Herkese açık lobiye oyunda listeye
+                bakanlar da girebilir, şifreliye yalnızca PreBot'tan haber alanlar.
             </div>
         </div>
         <div class="col-12">
@@ -81,7 +82,7 @@
     @if (_pushDevices == 0 && Account.Provider != "discord")
     {
         <div class="alert alert-warning small mt-3 mb-0">
-            🔕 Bu hesapta bildirimler kapalı: biri katılınca sana ancak bu sayfa açıkken haber verebilirim.
+            Bu hesapta bildirimler kapalı: biri katılınca sana ancak bu sayfa açıkken haber verebilirim.
             <a href="/bildirimler">Bildirimleri aç</a> ki oyundayken de katılanın Riot ID'si telefonuna gelsin.
         </div>
     }

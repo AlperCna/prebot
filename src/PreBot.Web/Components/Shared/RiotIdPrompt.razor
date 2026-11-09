@@ -3,7 +3,7 @@
 
 @* Inline "add your Riot ID" box, shown right where the Riot ID is needed (no trip to the profile page). *@
 <div class="riot-prompt">
-    <div class="small mb-1">🎮 <strong>Riot ID'ni ekle</strong> · @Hint</div>
+    <div class="small mb-1"><strong>Riot ID'ni ekle</strong> <span class="text-dim">· @Hint</span></div>
     <div class="d-flex gap-2">
         <input class="form-control form-control-sm" maxlength="22" placeholder="ör. Oyuncu#TR1" @bind="_value" @bind:event="oninput"
                @onkeydown="OnKeyDown" aria-label="Riot ID" />

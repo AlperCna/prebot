@@ -39,7 +39,7 @@
 @if (Yeni is int matches && isHost && l.Status == ListingStatus.Open)
 {
     <div class="alert alert-success">
-        📢 İlanın açıldı.
+        <strong>İlanın açıldı.</strong>
         @(matches == 0
             ? "Şu an havuzda uygun kimse yok. İlan açık kaldıkça yeni gelenlere haber vereceğim; linki arkadaşlarınla da paylaşabilirsin."
             : $"Havuzda {matches} uygun kişi var, en uygunlardan başlayarak haber veriyorum.")
@@ -47,14 +47,24 @@
 }
 
 <div class="pb-card @(l.Status == ListingStatus.Open ? "listing-card highlight" : "")">
-    <div class="text-dim small mb-1">
-        @(l.Status switch
+    <div class="status-line mb-2">
+        @switch (l.Status)
         {
-            ListingStatus.Open => $"🔎 Açık · {missing} kişi eksik · kapanış {Format.TimeLeft(l.ExpiresAtUtc)}",
-            ListingStatus.Filled => "✅ Kadro tamam, iyi oyunlar!",
-            ListingStatus.Expired => "⌛ İlanın süresi doldu",
-            _ => "🚫 İlan kapatıldı",
-        })
+            case ListingStatus.Open:
+                <span class="status-pill open">Açık</span>
+                <span>@missing kişi eksik · <Icon Name="clock" /> @Format.TimeLeft(l.ExpiresAtUtc)</span>
+                break;
+            case ListingStatus.Filled:
+                <span class="status-pill done">Kadro tamam</span>
+                <span>İyi oyunlar!</span>
+                break;
+            case ListingStatus.Expired:
+                <span class="status-pill">Süresi doldu</span>
+                break;
+            default:
+                <span class="status-pill">Kapatıldı</span>
+                break;
+        }
     </div>
     <h1 class="h3 mb-1">@Format.RoleLabel(l.Role) lazım</h1>
     <div class="mb-2">
@@ -92,7 +102,7 @@
                 }
                 @if (isHost && _noShows.GetValueOrDefault(slot.UserId) is var missed && missed > 0)
                 {
-                    <span class="small text-warning ms-1" title="Daha önceki ilanlarda ilan sahipleri 'Gelmedi' dedi">⚠️ daha önce @missed kez gelmedi</span>
+                    <span class="small text-warning ms-1" title="Daha önceki ilanlarda ilan sahipleri 'Gelmedi' dedi"><Icon Name="alert" /> daha önce @missed kez gelmedi</span>
                 }
             </div>
         }
@@ -104,7 +114,7 @@
         @if (isHost)
         {
             <div class="lobby-box mt-3">
-                <div class="fw-semibold mb-1">🎮 Oyunda özel lobini aç</div>
+                <div class="fw-semibold mb-1"><Icon Name="gamepad" /> Oyunda özel lobini aç</div>
                 <div class="small text-dim mb-2">Oyna → Özel Oyun → Oluştur. Bildirim alan ve o an oyunda olan biri lobine direkt girer.</div>
                 <div class="d-flex flex-wrap gap-2 align-items-center small">
                     Lobi adı: <button type="button" class="rank-chip riot-copy ms-0" data-copy="@lobbyName">@lobbyName <span class="copy-hint">kopyala</span></button>
@@ -113,13 +123,13 @@
                         <span>Şifre: <button type="button" class="rank-chip riot-copy ms-0" data-copy="@lobbyCode">@lobbyCode <span class="copy-hint">kopyala</span></button></span>
                     }
                 </div>
-                <button class="btn btn-sm btn-outline-light mt-2" disabled="@(_busy || !Ready)" @onclick="FilledViaLobbyAsync">✓ Lobiden biri geldi, ilanı kapat</button>
+                <button class="btn btn-sm btn-outline-light mt-2" disabled="@(_busy || !Ready)" @onclick="FilledViaLobbyAsync"><Icon Name="check" /> Lobiden biri geldi, ilanı kapat</button>
             </div>
         }
         else if (!insider)
         {
             <div class="lobby-box mt-3 small">
-                🎮 Şu an oyundaysan: <strong>Özel oyuna katıl</strong> → <strong>@lobbyName</strong>@(l.LobbyLocked ? $" (şifre {lobbyCode})" : "")
+                <Icon Name="gamepad" /> Şu an oyundaysan: <strong>Özel oyuna katıl</strong>, <strong>@lobbyName</strong>@(l.LobbyLocked ? $" (şifre {lobbyCode})" : "")
             </div>
         }
     }
@@ -179,17 +189,17 @@
         }
         @if (isHost && l.Status is ListingStatus.Expired or ListingStatus.Cancelled)
         {
-            <button class="btn btn-gold" disabled="@(_busy || !Ready)" @onclick="ReopenAsync">🔁 Aynı ilanı tekrar aç</button>
+            <button class="btn btn-gold" disabled="@(_busy || !Ready)" @onclick="ReopenAsync"><Icon Name="repeat" /> Aynı ilanı tekrar aç</button>
         }
         @if (l.Status == ListingStatus.Open)
         {
             <button type="button" class="btn btn-outline-light"
                     data-share-title="PreBot"
                     data-share-text="@ShareText(l)"
-                    data-share-url="@Navigation.ToAbsoluteUri($"/ilan/{Id}")">🔗 Paylaş (WhatsApp, Discord…)</button>
+                    data-share-url="@Navigation.ToAbsoluteUri($"/ilan/{Id}")"><Icon Name="share" /> Paylaş</button>
         }
         <a class="btn btn-link" href="/havuz">Havuza dön</a>
-        <button type="button" class="btn btn-link text-dim small ms-auto" @onclick="() => _reportOpen = !_reportOpen">🚩 Şikâyet et</button>
+        <button type="button" class="btn btn-link text-dim small ms-auto" @onclick="() => _reportOpen = !_reportOpen"><Icon Name="flag" /> Şikâyet et</button>
     </div>
 
     @if (_reportOpen)
@@ -197,7 +207,7 @@
         <div class="lobby-box mt-3 small">
             @if (_reportSent)
             {
-                <div>✓ Şikâyetin iletildi, teşekkürler. İncelenecek.</div>
+                <div><Icon Name="check" /> Şikâyetin iletildi, teşekkürler. İncelenecek.</div>
             }
             else
             {

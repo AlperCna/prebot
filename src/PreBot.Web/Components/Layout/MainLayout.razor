@@ -2,14 +2,14 @@
 
 <header class="site-header">
     <nav class="container nav-bar">
-        <a class="brand" href="/">⚔️ PreBot</a>
+        <a class="brand" href="/"><span class="brand-mark">P</span>PreBot</a>
         <div class="nav-links">
             <AuthorizeView>
                 <Authorized>
-                    <button type="button" class="btn btn-sm btn-outline-light" data-install hidden title="Siteyi uygulama olarak yükle">📲 Yükle</button>
+                    <button type="button" class="btn btn-sm btn-outline-light" data-install hidden title="Siteyi uygulama olarak yükle"><Icon Name="download" /> Yükle</button>
                     <NavLink href="/havuz">Havuz</NavLink>
                     <NavLink href="/ilan-ac">İlan aç</NavLink>
-                    <NavLink href="/bildirimler" title="Bildirimler">🔔</NavLink>
+                    <NavLink href="/bildirimler" title="Bildirimler" aria-label="Bildirimler"><Icon Name="bell" /></NavLink>
                     <NavLink href="/profil">@context.User.Identity?.Name</NavLink>
                 </Authorized>
                 <NotAuthorized>
@@ -41,5 +41,5 @@
 <div id="blazor-error-ui" data-nosnippet>
     Beklenmeyen bir hata oluştu.
     <a href="." class="reload">Sayfayı yenile</a>
-    <span class="dismiss">🗙</span>
+    <span class="dismiss">×</span>
 </div>

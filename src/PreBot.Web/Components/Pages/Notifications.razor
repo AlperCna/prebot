@@ -21,7 +21,7 @@
 <div class="pb-card">
     @if (_mutedUntil is { } until)
     {
-        <div class="mb-2">🔕 Başka ilanlar için bildirimler <strong>@TurkeyTime.ToLocal(until).ToString("HH:mm")</strong>'e kadar susturuldu.
+        <div class="mb-2"><Icon Name="bell-off" /> Başka ilanlar için bildirimler <strong>@TurkeyTime.ToLocal(until).ToString("HH:mm")</strong>'e kadar susturuldu.
             Kendi ilanınla ilgili haberler gelmeye devam eder.</div>
         <button class="btn btn-sm btn-gold" disabled="@(!Ready)" @onclick="() => MuteAsync(null)">Bildirimleri şimdi aç</button>
     }

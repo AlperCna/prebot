@@ -3,27 +3,36 @@
 {
     <div class="pb-card getting-started mb-3">
         <div class="d-flex justify-content-between align-items-center">
-            <div class="fw-semibold">🚀 Başlarken</div>
+            <div class="fw-semibold">Başlarken</div>
             <button class="btn btn-sm btn-link text-dim p-0" @onclick="() => _hidden = true">Gizle</button>
         </div>
         <ol class="checklist mb-0 mt-2">
             <li class="@(HasRiotId ? "done" : "")">
-                @(HasRiotId ? "✅" : "1️⃣") <strong>Riot ID'ni ekle</strong>: katıldığın ilanda sahibi seni oyunda davet edebilsin.
-                @if (!HasRiotId)
-                {
-                    <div class="mt-2"><RiotIdPrompt UserId="UserId" OnSaved="_ => OnChanged.InvokeAsync()" /></div>
-                }
+                <span class="step-mark">@if (HasRiotId) { <Icon Name="check" /> } else { <text>1</text> }</span>
+                <div class="flex-grow-1">
+                    <strong>Riot ID'ni ekle</strong>: katıldığın ilanda sahibi seni oyunda davet edebilsin.
+                    @if (!HasRiotId)
+                    {
+                        <RiotIdPrompt UserId="UserId" OnSaved="_ => OnChanged.InvokeAsync()" />
+                    }
+                </div>
             </li>
             <li class="@(HasPush ? "done" : "")">
-                @(HasPush ? "✅" : "2️⃣") <strong>Bildirimleri aç</strong>: site kapalıyken de "Destek lazım!" haberi gelsin.
-                @if (!HasPush)
-                {
-                    <a href="/bildirimler" class="ms-1">Aç →</a>
-                }
+                <span class="step-mark">@if (HasPush) { <Icon Name="check" /> } else { <text>2</text> }</span>
+                <div class="flex-grow-1">
+                    <strong>Bildirimleri aç</strong>: site kapalıyken de "Destek lazım" haberi gelsin.
+                    @if (!HasPush)
+                    {
+                        <a href="/bildirimler" class="ms-1">Aç</a>
+                    }
+                </div>
             </li>
             <li class="@(HasWay ? "done" : "")">
-                @(HasWay ? "✅" : "3️⃣") <strong>"Şu an müsaitim" de</strong> ya da her akşam uğraşmamak için
-                <a href="/bildirimler">"Bana haber ver"i kur</a>.
+                <span class="step-mark">@if (HasWay) { <Icon Name="check" /> } else { <text>3</text> }</span>
+                <div class="flex-grow-1">
+                    <strong>"Şu an müsaitim" de</strong> ya da her akşam uğraşmamak için
+                    <a href="/bildirimler">"Bana haber ver"i kur</a>.
+                </div>
             </li>
         </ol>
     </div>

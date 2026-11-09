@@ -1,19 +1,38 @@
+/*
+ * PreBot theme: the mood of the League client without copying it (no Riot logos, no Riot fonts).
+ * Hextech black and deep navy surfaces, cream text, gold for frames and titles,
+ * hextech teal for "open / live" states. Flat: no gradients, no glows.
+ */
 :root {
-    --pb-bg: #0b1220;
-    --pb-surface: #121b2e;
-    --pb-surface-2: #18233a;
-    --pb-border: #24324f;
-    --pb-text: #e8ecf4;
-    --pb-text-dim: #93a0b8;
-    --pb-gold: #c8aa6e;
-    --pb-gold-2: #f0d48a;
-    --pb-teal: #0ac8b9;
+    --pb-bg: #010a13;            /* hextech black */
+    --pb-surface: #0a1428;       /* deep navy panels */
+    --pb-surface-2: #0f1d33;     /* inputs, inner boxes */
+    --pb-border: #1e2d3d;        /* quiet hairlines */
+    --pb-border-strong: #3c3c41;
+    --pb-gold: #c8aa6e;          /* titles, primary frames */
+    --pb-gold-strong: #c89b3c;
+    --pb-gold-dim: #785a28;      /* gold hairlines */
+    --pb-text: #f0e6d2;          /* cream */
+    --pb-text-dim: #a09b8c;      /* warm grey */
+    --pb-accent: #c8aa6e;        /* primary actions = gold */
+    --pb-accent-hover: #f0e6d2;
+    --pb-accent-soft: rgba(200, 170, 110, 0.10);
+    --pb-teal: #0ac8b9;          /* hextech teal: open, live, links */
+    --pb-teal-soft: rgba(10, 200, 185, 0.10);
+    --pb-success: #0ac8b9;
+    --pb-success-soft: rgba(10, 200, 185, 0.10);
+    --pb-warning: #d9a441;
+    --pb-warning-soft: rgba(217, 164, 65, 0.10);
+    --pb-danger: #d8484f;
+    --pb-radius: 6px;
 }
 
 html, body {
     background: var(--pb-bg);
     color: var(--pb-text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
 }
 
 body {
@@ -26,52 +45,131 @@ main {
     flex: 1;
 }
 
-/* One readable column on wide screens; header, content and footer line up. */
 main.container,
 .site-header .container,
 .site-footer .container {
-    max-width: 880px;
+    max-width: 860px;
 }
 
-a {
-    color: var(--pb-teal);
+h1, h2, h3, h4, .h3, .h4 {
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--pb-text);
 }
 
 h1:focus {
     outline: none;
 }
 
-.text-dim {
-    color: var(--pb-text-dim);
+a {
+    color: var(--pb-teal);
+    text-decoration: none;
 }
 
-.text-gold {
-    color: var(--pb-gold);
+a:hover {
+    color: #5ee8dc;
+    text-decoration: underline;
+}
+
+.text-dim {
+    color: var(--pb-text-dim) !important;
+}
+
+.text-gold, .text-accent {
+    color: var(--pb-accent);
+}
+
+code {
+    color: var(--pb-text);
+    background: var(--pb-surface-2);
+    padding: 0.05rem 0.3rem;
+    border-radius: 4px;
+}
+
+/* ---------- Icons ---------- */
+.icon {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+    vertical-align: -0.125em;
 }
 
 /* ---------- Buttons ---------- */
-.btn-gold {
-    background: linear-gradient(180deg, var(--pb-gold-2), var(--pb-gold));
-    border: none;
-    color: #1a1407;
-    font-weight: 600;
+.btn {
+    border-radius: var(--pb-radius);
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
 }
 
-.btn-gold:hover, .btn-gold:focus {
-    filter: brightness(1.08);
-    color: #1a1407;
+.btn-lg {
+    font-size: 1rem;
+    padding: 0.6rem 1.2rem;
+}
+
+/* Primary button: gold frame on a dark fill, like the League client's buttons (flat, no gradient). */
+.btn-gold, .btn-primary {
+    background: #1e2328;
+    border: 1px solid var(--pb-gold);
+    color: var(--pb-text);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.btn-gold:hover, .btn-gold:focus, .btn-primary:hover {
+    background: #252b31;
+    border-color: var(--pb-text);
+    color: #fff;
 }
 
 .btn-gold:disabled {
-    opacity: 0.6;
+    background: #1e2328;
+    border-color: var(--pb-gold-dim);
+    color: var(--pb-text-dim);
+    opacity: 0.7;
+}
+
+.btn-outline-light {
+    border-color: var(--pb-border-strong);
+    color: var(--pb-text);
+    background: transparent;
+}
+
+.btn-outline-light:hover {
+    background: var(--pb-surface-2);
+    border-color: var(--pb-gold-dim);
+    color: var(--pb-text);
+}
+
+.btn-outline-danger {
+    border-color: rgba(229, 72, 77, 0.45);
+    color: #f0868a;
+}
+
+.btn-outline-danger:hover {
+    background: rgba(229, 72, 77, 0.12);
+    border-color: var(--pb-danger);
+    color: #f6a2a5;
+}
+
+.btn-link {
+    color: var(--pb-text-dim);
+    text-decoration: none;
+}
+
+.btn-link:hover {
+    color: var(--pb-text);
+    text-decoration: none;
 }
 
 /* ---------- Cards ---------- */
 .pb-card {
     background: var(--pb-surface);
     border: 1px solid var(--pb-border);
-    border-radius: 14px;
-    padding: 1rem 1.1rem;
+    border-radius: var(--pb-radius);
+    padding: 1rem 1.15rem;
 }
 
 .pb-card + .pb-card {
@@ -79,28 +177,30 @@ h1:focus {
 }
 
 .listing-card.highlight {
-    border-color: var(--pb-gold);
-    box-shadow: 0 0 0 1px var(--pb-gold) inset;
+    border-color: var(--pb-gold-dim);
+    box-shadow: inset 3px 0 0 var(--pb-gold);
 }
 
 .listing-title {
     font-weight: 600;
-    font-size: 1.05rem;
+    font-size: 1.02rem;
 }
 
 .listing-note {
     color: var(--pb-text-dim);
-    font-style: italic;
     margin-top: 0.35rem;
 }
 
+/* Small neutral labels: rank range, seats, Riot ID. */
 .rank-chip, .role-chip {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     background: var(--pb-surface-2);
     border: 1px solid var(--pb-border);
-    border-radius: 999px;
-    padding: 0.05rem 0.6rem;
-    font-size: 0.85rem;
+    border-radius: 4px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.82rem;
     font-weight: 500;
     margin-left: 0.25rem;
     color: var(--pb-text);
@@ -110,67 +210,138 @@ h1:focus {
     margin: 0 0.35rem 0.35rem 0;
 }
 
+/* Status line on top of a listing ("Açık · 1 kişi eksik ..."). */
+.status-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--pb-text-dim);
+    font-size: 0.85rem;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.05rem 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: var(--pb-surface-2);
+    color: var(--pb-text-dim);
+}
+
+.status-pill.open {
+    background: var(--pb-success-soft);
+    color: var(--pb-success);
+}
+
+.status-pill.done {
+    background: var(--pb-accent-soft);
+    color: var(--pb-gold);
+}
+
 .status-live {
-    border-color: rgba(10, 200, 185, 0.6);
-    background: linear-gradient(180deg, rgba(10, 200, 185, 0.10), var(--pb-surface));
+    border-color: rgba(10, 200, 185, 0.35);
 }
 
 .dot {
     display: inline-block;
-    width: 0.6rem;
-    height: 0.6rem;
+    width: 0.5rem;
+    height: 0.5rem;
     border-radius: 50%;
-    background: var(--pb-teal);
-    box-shadow: 0 0 8px var(--pb-teal);
-    margin-right: 0.4rem;
-    animation: pulse 1.6s infinite;
-}
-
-@keyframes pulse {
-    50% { opacity: 0.4; }
+    background: var(--pb-success);
+    margin-right: 0.45rem;
+    vertical-align: 0.1em;
 }
 
 .section-title {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--pb-text-dim);
+    letter-spacing: 0.1em;
+    color: var(--pb-gold);
     margin: 1.75rem 0 0.6rem;
 }
 
-/* ---------- Alert banner ---------- */
+/* ---------- Alerts (quiet: tinted background, coloured edge) ---------- */
+.alert {
+    border-radius: var(--pb-radius);
+    border: 1px solid var(--pb-border);
+    border-left-width: 3px;
+    background: var(--pb-surface);
+    color: var(--pb-text);
+}
+
+.alert-success {
+    border-left-color: var(--pb-success);
+    background: var(--pb-success-soft);
+}
+
+.alert-info {
+    border-left-color: var(--pb-teal);
+    background: var(--pb-teal-soft);
+}
+
+.alert-warning {
+    border-left-color: var(--pb-warning);
+    background: var(--pb-warning-soft);
+}
+
+.alert-secondary {
+    border-left-color: var(--pb-border-strong);
+}
+
+.alert a {
+    color: var(--pb-teal);
+}
+
+/* ---------- "New listing for you" banner ---------- */
 .wave-alert {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
     flex-wrap: wrap;
-    background: linear-gradient(90deg, rgba(200, 170, 110, 0.22), rgba(200, 170, 110, 0.08));
-    border: 1px solid var(--pb-gold);
-    border-radius: 14px;
-    padding: 0.9rem 1.1rem;
+    background: var(--pb-surface);
+    border: 1px solid var(--pb-border-strong);
+    border-left: 3px solid var(--pb-gold);
+    border-radius: var(--pb-radius);
+    padding: 0.85rem 1.1rem;
     margin-bottom: 1rem;
-    animation: slide-in 0.25s ease-out;
+    animation: slide-in 0.2s ease-out;
 }
 
 @keyframes slide-in {
-    from { transform: translateY(-6px); opacity: 0; }
+    from { transform: translateY(-4px); opacity: 0; }
     to { transform: none; opacity: 1; }
 }
 
 /* ---------- Home ---------- */
 .hero {
-    padding: 2.5rem 0 1rem;
+    padding: 2.75rem 0 1rem;
+}
+
+.eyebrow {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--pb-gold);
+    margin-bottom: 0.75rem;
 }
 
 .hero h1 {
-    font-size: clamp(1.8rem, 5vw, 2.6rem);
-    font-weight: 800;
-    line-height: 1.15;
+    font-size: clamp(1.75rem, 4.5vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1.2;
+    max-width: 40rem;
 }
 
 .hero .lead {
     color: var(--pb-text-dim);
+    font-size: 1.05rem;
     max-width: 36rem;
 }
 
@@ -186,9 +357,17 @@ h1:focus {
 }
 
 .step-no {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    border: 1px solid var(--pb-gold-dim);
     color: var(--pb-gold);
-    font-weight: 800;
-    font-size: 1.4rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
 }
 
 /* ---------- Forms ---------- */
@@ -196,55 +375,97 @@ h1:focus {
     background-color: var(--pb-surface-2);
     border-color: var(--pb-border);
     color: var(--pb-text);
+    border-radius: var(--pb-radius);
+}
+
+.form-control::placeholder {
+    color: #6b6a63;
+}
+
+.form-select:focus, .form-control:focus {
+    background-color: var(--pb-surface-2);
+    border-color: var(--pb-gold);
+    box-shadow: 0 0 0 3px var(--pb-accent-soft);
+    color: var(--pb-text);
 }
 
 .form-label {
     color: var(--pb-text-dim);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.3rem;
+}
+
+.form-check-input:checked {
+    background-color: var(--pb-teal);
+    border-color: var(--pb-teal);
 }
 
 .prose h2 {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     margin-top: 1.5rem;
 }
 
 .prose p, .prose li {
-    color: #c9d1e0;
+    color: #cdc6b5;
 }
 
 .push-prompt {
-    border-color: rgba(200, 170, 110, 0.5);
-}
-
-.form-check-input:checked {
-    background-color: var(--pb-gold);
-    border-color: var(--pb-gold);
+    border-color: var(--pb-border-strong);
 }
 
 /* ---------- Onboarding & Riot ID ---------- */
 .getting-started {
-    border-color: rgba(10, 200, 185, 0.45);
+    border-color: var(--pb-border-strong);
 }
 
 .checklist {
     padding-left: 0;
     list-style: none;
+    margin-bottom: 0;
 }
 
 .checklist li {
-    padding: 0.35rem 0;
+    display: flex;
+    gap: 0.65rem;
+    align-items: flex-start;
+    padding: 0.45rem 0;
     color: var(--pb-text);
+}
+
+.checklist li + li {
+    border-top: 1px solid var(--pb-border);
+}
+
+.checklist .step-mark {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    border: 1px solid var(--pb-border-strong);
+    color: var(--pb-text-dim);
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-top: 0.1rem;
 }
 
 .checklist li.done {
     color: var(--pb-text-dim);
 }
 
+.checklist li.done .step-mark {
+    background: var(--pb-success-soft);
+    border-color: transparent;
+    color: var(--pb-success);
+}
+
 .riot-prompt {
     background: var(--pb-surface-2);
-    border: 1px dashed var(--pb-border);
-    border-radius: 10px;
-    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--pb-border);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
     margin-top: 0.75rem;
 }
 
@@ -255,7 +476,6 @@ h1:focus {
 .riot-copy .copy-hint {
     color: var(--pb-text-dim);
     font-size: 0.75rem;
-    margin-left: 0.35rem;
 }
 
 .riot-copy:hover {
@@ -274,20 +494,27 @@ h1:focus {
 }
 
 .stat-value {
-    font-size: 1.6rem;
-    font-weight: 800;
-    color: var(--pb-gold);
+    font-size: 1.5rem;
+    font-weight: 650;
+    color: var(--pb-text);
+    font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
     color: var(--pb-text-dim);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
 }
 
-/* ---------- Custom game lobby ---------- */
+/* ---------- Custom game lobby & secondary boxes ---------- */
 .lobby-box {
-    border: 1px dashed var(--pb-gold);
-    border-radius: 0.75rem;
-    padding: 0.75rem 0.9rem;
-    background: rgba(200, 170, 110, 0.06);
+    border: 1px solid var(--pb-border);
+    border-radius: var(--pb-radius);
+    padding: 0.8rem 0.95rem;
+    background: var(--pb-surface-2);
+}
+
+/* ---------- Tables (privacy page) ---------- */
+.table-dark {
+    --bs-table-bg: var(--pb-surface);
+    --bs-table-border-color: var(--pb-border);
 }

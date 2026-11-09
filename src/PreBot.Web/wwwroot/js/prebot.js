@@ -167,8 +167,9 @@ document.addEventListener('click', (event) => {
         window.prebot.copy(copy.dataset.copy).then((ok) => {
             const hint = copy.querySelector('.copy-hint');
             if (ok && hint) {
-                hint.textContent = '✓ kopyalandı';
-                setTimeout(() => { hint.textContent = 'kopyala'; }, 2500);
+                const original = hint.innerHTML;
+                hint.textContent = 'kopyalandı';
+                setTimeout(() => { hint.innerHTML = original; }, 2500);
             }
         });
     }
@@ -177,12 +178,12 @@ document.addEventListener('click', (event) => {
     const share = event.target.closest('[data-share-url]');
     if (share) {
         event.preventDefault();
-        const label = share.textContent;
         window.prebot.share(share.dataset.shareTitle || 'PreBot', share.dataset.shareText || '', share.dataset.shareUrl)
             .then((result) => {
                 if (result === 'copied' || result === 'shared') {
-                    share.textContent = result === 'copied' ? 'Kopyalandı ✓' : 'Paylaşıldı ✓';
-                    setTimeout(() => { share.textContent = label; }, 3000);
+                    const original = share.innerHTML;
+                    share.textContent = result === 'copied' ? 'Bağlantı kopyalandı' : 'Paylaşıldı';
+                    setTimeout(() => { share.innerHTML = original; }, 3000);
                 }
             });
     }

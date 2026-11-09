@@ -85,7 +85,7 @@ public sealed class PushSender(
     public Task<int> SendTestAsync(ulong userId, CancellationToken ct = default) =>
         SendAsync(
             [userId],
-            new PushPayload("🔔 PreBot bildirimleri açık", "Uygun bir ilan açılınca böyle haber vereceğim.", "/havuz", null, "test"),
+            new PushPayload("PreBot bildirimleri açık", "Uygun bir ilan açılınca böyle haber vereceğim.", "/havuz", null, "test"),
             TimeSpan.FromMinutes(5),
             topic: null,
             ct);
@@ -95,7 +95,7 @@ public sealed class PushSender(
     public static PushPayload ForListing(
         int listingId, Role role, Rank min, Rank max, int missing, string? joinToken = null, string? lobbyHint = null,
         string? muteToken = null) => new(
-        $"📣 {TurkishNames.Of(role)} lazım!",
+        $"{TurkishNames.Of(role)} lazım",
         (missing == 1
             ? $"4 kişi seni bekliyor · {TurkishNames.RankRange(min, max)}. İlk basan alır."
             : $"{TurkishNames.RankRange(min, max)} · {missing} kişi eksik. İlk basan alır.")

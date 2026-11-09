@@ -19,15 +19,5 @@ public static class Format
         return left.TotalMinutes < 1 ? "1 dk'dan az" : $"{(int)Math.Ceiling(left.TotalMinutes)} dk";
     }
 
-    public static string RoleIcon(Role role) => role switch
-    {
-        Role.Top => "🛡️",
-        Role.Jungle => "🌿",
-        Role.Mid => "✨",
-        Role.Adc => "🏹",
-        Role.Support => "💙",
-        _ => "🎲",
-    };
-
-    public static string RoleLabel(Role role) => $"{RoleIcon(role)} {TurkishNames.Of(role)}";
+    public static string RoleLabel(Role role) => TurkishNames.Of(role);
 }

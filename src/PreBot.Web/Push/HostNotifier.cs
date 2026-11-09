@@ -35,7 +35,7 @@ public sealed class HostNotifier(PreService pre, AccountService accounts, PushSe
         var l = view.Listing;
         var name = (await accounts.GetDisplayNamesAsync([joinerUserId], ct)).GetValueOrDefault(joinerUserId, "Bir oyuncu");
         var riotId = view.ActiveSlots.FirstOrDefault(s => s.UserId == joinerUserId)?.RiotId;
-        var title = l.Status == ListingStatus.Filled ? $"✅ Kadro tamam! {name} katıldı" : $"🎉 {name} katıldı!";
+        var title = l.Status == ListingStatus.Filled ? $"Kadro tamam: {name} katıldı" : $"{name} katıldı";
         var body = riotId is null
             ? "Riot ID'sini kaydetmemiş; ilan sayfasından birlikte çözün."
             : $"Riot ID: {riotId} · Oyunda Arkadaş ekle → lobine davet et.";
@@ -54,7 +54,7 @@ public sealed class HostNotifier(PreService pre, AccountService accounts, PushSe
         var name = (await accounts.GetDisplayNamesAsync([leaverUserId], ct)).GetValueOrDefault(leaverUserId, "Katılan oyuncu");
         await NotifyHostAsync(
             view.Listing.HostUserId,
-            new PushPayload($"😕 {name} vazgeçti", "İlan yeniden açıldı, uygun oyunculara tekrar haber veriyorum.",
+            new PushPayload($"{name} vazgeçti", "İlan yeniden açıldı, uygun oyunculara tekrar haber veriyorum.",
                 $"/ilan/{listingId}", null, $"host-{listingId}"),
             JoinTtl, ct);
     }
@@ -69,7 +69,7 @@ public sealed class HostNotifier(PreService pre, AccountService accounts, PushSe
 
         await NotifyHostAsync(
             view.Listing.HostUserId,
-            new PushPayload("⌛ İlanın süresi doldu", "Bu sefer kimse katılmadı. Tek dokunuşla tekrar açabilirsin.",
+            new PushPayload("İlanın süresi doldu", "Bu sefer kimse katılmadı. Tek dokunuşla tekrar açabilirsin.",
                 $"/ilan/{listingId}", null, $"host-{listingId}"),
             TimeSpan.FromMinutes(30), ct);
     }

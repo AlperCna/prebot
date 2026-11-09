@@ -21,7 +21,7 @@
 <div class="pb-card @(Compact ? "push-prompt" : "")">
     @if (!_state.Supported && _state.Ios && !_state.Standalone)
     {
-        <div class="fw-semibold">📱 iPhone'da bildirim almak için</div>
+        <div class="fw-semibold">iPhone'da bildirim almak için</div>
         <ol class="small text-dim mb-0 mt-1 ps-3">
             <li>Safari'de alttaki <strong>Paylaş</strong> (⬆️) düğmesine dokun.</li>
             <li><strong>Ana Ekrana Ekle</strong>'yi seç.</li>
@@ -34,14 +34,14 @@
     }
     else if (_state.Permission == "denied")
     {
-        <div class="fw-semibold">🔕 Bildirimler engellenmiş</div>
+        <div class="fw-semibold">Bildirimler engellenmiş</div>
         <div class="small text-dim">Adres çubuğundaki kilit simgesine dokun → <strong>Bildirimler: İzin ver</strong>, sonra sayfayı yenile.</div>
     }
     else if (_state.Endpoint is null)
     {
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-                <div class="fw-semibold">🔔 Sekme kapalıyken de haber al</div>
+                <div class="fw-semibold">Sekme kapalıyken de haber al</div>
                 <div class="small text-dim">Uygun ilan açılınca telefonuna ya da bilgisayarına bildirim gelir, tek dokunuşla katılırsın.</div>
             </div>
             <button class="btn btn-gold" data-push-enable disabled="@_busy" @onclick="EnableAsync">Bu cihazda bildirimleri aç</button>
@@ -51,7 +51,7 @@
     {
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-                <div class="fw-semibold">🔔 Bu cihazda bildirimler açık</div>
+                <div class="fw-semibold"><span class="dot"></span>Bu cihazda bildirimler açık</div>
                 <div class="small text-dim">Toplam @_devices cihazında açık. Telefonunda da açmak için siteyi orada açıp aynı düğmeye bas.</div>
             </div>
             <div class="d-flex gap-2">
