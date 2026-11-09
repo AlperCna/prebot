@@ -36,6 +36,9 @@ public interface IWebPool
 
     Task DeleteAccountAsync(ulong userId);
 
+    /// <summary>True if the operator closed this account.</summary>
+    Task<bool> IsBannedAsync(ulong userId);
+
     /// <summary>Absolute link to a listing page on the website.</summary>
     string ListingUrl(int listingId);
 }

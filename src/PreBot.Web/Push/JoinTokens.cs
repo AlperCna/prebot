@@ -15,6 +15,31 @@ public sealed class JoinTokens(IDataProtectionProvider provider, TimeProvider ti
     private readonly ITimeLimitedDataProtector _protector =
         provider.CreateProtector("PreBot.JoinLink.v1").ToTimeLimitedDataProtector();
 
+    private readonly ITimeLimitedDataProtector _mute =
+        provider.CreateProtector("PreBot.Mute.v1").ToTimeLimitedDataProtector();
+
+    /// <summary>Personal token for the notification's "1 saat sustur" button (valid one day).</summary>
+    public string CreateMute(ulong userId) => _mute.Protect(userId.ToString(), time.GetUtcNow() + TimeSpan.FromDays(1));
+
+    /// <summary>The user a mute token belongs to, or null if it is forged or expired.</summary>
+    public ulong? MuteUser(string? token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return null;
+        }
+
+        try
+        {
+            var payload = _mute.Unprotect(token, out var expiration);
+            return expiration > time.GetUtcNow() && ulong.TryParse(payload, out var id) ? id : null;
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
+    }
+
     public string Create(int listingId, ulong userId) =>
         _protector.Protect($"{listingId}:{userId}", time.GetUtcNow() + Lifetime);
 

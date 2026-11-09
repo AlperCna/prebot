@@ -223,6 +223,40 @@ namespace PreBot.Core.Data.Migrations
                     b.ToTable("ListingNotifications");
                 });
 
+            modelBuilder.Entity("PreBot.Core.Domain.ListingReport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ListingId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ReportedUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("ReporterUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResolvedAtUtc");
+
+                    b.ToTable("ListingReports");
+                });
+
             modelBuilder.Entity("PreBot.Core.Domain.ListingSlot", b =>
                 {
                     b.Property<int>("Id")
@@ -299,6 +333,9 @@ namespace PreBot.Core.Data.Migrations
                     b.Property<DateTime>("ConsentedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("MutedUntilUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RiotId")
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");
@@ -313,6 +350,9 @@ namespace PreBot.Core.Data.Migrations
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("BannedAtUtc")
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");

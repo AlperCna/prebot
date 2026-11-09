@@ -7,7 +7,9 @@
 # - Veriler %LOCALAPPDATA%\PreBot-deneme klasorunde, gelistirme verilerinden ayri.
 # - Discord botu kapali (denemede Discord'a hicbir sey gonderilmez).
 param(
-    [string]$Kod
+    [string]$Kod,
+    # Your user number (Profil sayfasinda yazar), so you can open /yonetim. Kept for later runs.
+    [string]$Yonetici
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +28,13 @@ if ($Kod) {
     Set-Content -Path $codeFile -Value $Kod -Encoding ascii
 }
 
+$adminFile = Join-Path $data "yonetici.txt"
+if ($Yonetici) {
+    Set-Content -Path $adminFile -Value $Yonetici -Encoding ascii
+} elseif (Test-Path $adminFile) {
+    $Yonetici = (Get-Content $adminFile -Raw).Trim()
+}
+
 Write-Host "Site derleniyor (yayin modu)..." -ForegroundColor Cyan
 dotnet publish "$root\src\PreBot.Web\PreBot.Web.csproj" -c Release -o $app --nologo -v quiet
 if ($LASTEXITCODE -ne 0) { Write-Host "Derleme basarisiz." -ForegroundColor Red; exit 1 }
@@ -38,6 +47,7 @@ $env:Site__OperatorName = "PreBot deneme grubu"
 $env:Site__HostingLocation = "Turkiye (gelistiricinin bilgisayari, gecici deneme)"
 $env:Discord__Enabled = "false"
 $env:Backup__Enabled = "false"
+$env:Site__AdminUserIds = $Yonetici
 
 Write-Host ""
 Write-Host "Davet kodu: $Kod" -ForegroundColor Green

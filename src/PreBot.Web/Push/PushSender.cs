@@ -8,7 +8,7 @@ using PreBot.Core.Services;
 namespace PreBot.Web.Push;
 
 /// <summary>What the service worker receives and turns into a system notification.</summary>
-public sealed record PushPayload(string Title, string Body, string Url, string? JoinUrl, string Tag);
+public sealed record PushPayload(string Title, string Body, string Url, string? JoinUrl, string Tag, string? MuteUrl = null);
 
 /// <summary>Sends Web Push messages to every registered device of the given users.</summary>
 public sealed class PushSender(
@@ -93,7 +93,8 @@ public sealed class PushSender(
     /// <param name="joinToken">Personal token from <see cref="JoinTokens"/>; without it the link only opens the listing.</param>
     /// <param name="lobbyHint">"Oyundaysan: Özel oyuna katıl → ..." when the host also opened a custom game lobby.</param>
     public static PushPayload ForListing(
-        int listingId, Role role, Rank min, Rank max, int missing, string? joinToken = null, string? lobbyHint = null) => new(
+        int listingId, Role role, Rank min, Rank max, int missing, string? joinToken = null, string? lobbyHint = null,
+        string? muteToken = null) => new(
         $"📣 {TurkishNames.Of(role)} lazım!",
         (missing == 1
             ? $"4 kişi seni bekliyor · {TurkishNames.RankRange(min, max)}. İlk basan alır."
@@ -101,5 +102,6 @@ public sealed class PushSender(
             + (lobbyHint is null ? "" : $"\n{lobbyHint}"),
         $"/ilan/{listingId}",
         joinToken is null ? null : $"/ilan/{listingId}?katil={Uri.EscapeDataString(joinToken)}",
-        $"listing-{listingId}");
+        $"listing-{listingId}",
+        muteToken is null ? null : $"/api/sustur?t={Uri.EscapeDataString(muteToken)}");
 }

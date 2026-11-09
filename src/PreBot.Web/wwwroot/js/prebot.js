@@ -187,3 +187,25 @@ document.addEventListener('click', (event) => {
             });
     }
 }, true);
+
+// "Uygulamayı yükle": Chrome/Edge on Android and PC offer installing the site as an app (own window,
+// notifications even with the browser closed on PC). The button stays hidden where this isn't offered.
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    window.prebot._installPrompt = event;
+    document.querySelectorAll('[data-install]').forEach((b) => { b.hidden = false; });
+});
+window.addEventListener('appinstalled', () => {
+    window.prebot._installPrompt = null;
+    document.querySelectorAll('[data-install]').forEach((b) => { b.hidden = true; });
+});
+document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-install]');
+    if (!button || !window.prebot._installPrompt) {
+        return;
+    }
+    const prompt = window.prebot._installPrompt;
+    window.prebot._installPrompt = null;
+    await prompt.prompt();
+    button.hidden = true;
+});

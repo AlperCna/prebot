@@ -145,6 +145,7 @@ public sealed class WebPoolForDiscord(
     PreService pre,
     AccountService accounts,
     LiveUpdates live,
+    ModerationService moderation,
     IConfiguration config) : IWebPool
 {
     private const ulong Web = Communities.Web;
@@ -188,6 +189,8 @@ public sealed class WebPoolForDiscord(
         await accounts.DeleteAccountAsync(userId);
         live.PublishChanged();
     }
+
+    public Task<bool> IsBannedAsync(ulong userId) => moderation.IsBannedAsync(userId);
 
     public string ListingUrl(int listingId) => $"{(config["PublicUrl"] ?? "http://localhost:5215").TrimEnd('/')}/ilan/{listingId}";
 }

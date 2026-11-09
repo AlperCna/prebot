@@ -76,6 +76,7 @@ public sealed class CommandDefinitionTests : IDisposable
         public Task<string?> GetRiotIdAsync(ulong userId) => throw new NotSupportedException();
         public Task<bool> SetRiotIdAsync(ulong userId, string riotId) => throw new NotSupportedException();
         public Task DeleteAccountAsync(ulong userId) => throw new NotSupportedException();
+        public Task<bool> IsBannedAsync(ulong userId) => throw new NotSupportedException();
         public string ListingUrl(int listingId) => "";
     }
 

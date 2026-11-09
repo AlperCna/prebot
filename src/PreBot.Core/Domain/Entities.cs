@@ -21,6 +21,9 @@ public sealed class Player
     public string? RiotId { get; set; }
 
     public DateTime ConsentedAtUtc { get; set; }
+
+    /// <summary>"Don't notify me until ..." (null = not muted). Host updates about their own listing still arrive.</summary>
+    public DateTime? MutedUntilUtc { get; set; }
 }
 
 /// <summary>"I'm free right now" entry. One per user per server; disappears on its own when it expires.</summary>
@@ -121,7 +124,26 @@ public sealed class UserAccount
     /// <summary>When the user ticked "I accept the terms and privacy notice, I am 16+" (first time).</summary>
     public DateTime? TermsAcceptedAtUtc { get; set; }
 
+    /// <summary>Set by the operator: the account can no longer sign in or be notified.</summary>
+    public DateTime? BannedAtUtc { get; set; }
+
     public ulong UserId => (ulong)Id;
+}
+
+/// <summary>A player reported a listing or someone in it (reviewed by the operator on the admin page).</summary>
+public sealed class ListingReport
+{
+    public int Id { get; set; }
+    public int ListingId { get; set; }
+    public ulong ReporterUserId { get; set; }
+
+    /// <summary>The player being reported (null = the listing itself).</summary>
+    public ulong? ReportedUserId { get; set; }
+
+    public ReportReason Reason { get; set; }
+    public string? Note { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? ResolvedAtUtc { get; set; }
 }
 
 /// <summary>Who was already notified about a listing, so nobody hears about the same listing twice.</summary>

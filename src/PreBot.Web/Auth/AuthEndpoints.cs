@@ -36,6 +36,11 @@ public static class AuthEndpoints
                 }
 
                 var account = await accounts.GetOrCreateAsync(DevProvider, displayName.ToLowerInvariant(), displayName);
+                if (account.BannedAtUtc is not null)
+                {
+                    return Results.Redirect("/giris?hata=engel");
+                }
+
                 await SignInAsync(http, account.UserId, account.DisplayName, DevProvider);
                 return Results.LocalRedirect(SafeReturnUrl(returnUrl));
             });
@@ -74,6 +79,11 @@ public static class AuthEndpoints
                 }
 
                 var account = await accounts.GetOrCreateAsync(InviteProvider, displayName.ToLowerInvariant(), displayName);
+                if (account.BannedAtUtc is not null)
+                {
+                    return Results.Redirect("/giris?hata=engel");
+                }
+
                 await accounts.MarkTermsAcceptedAsync(account.UserId);
                 await SignInAsync(http, account.UserId, account.DisplayName, InviteProvider);
                 return Results.LocalRedirect(SafeReturnUrl(returnUrl));
@@ -128,11 +138,11 @@ public static class AuthEndpoints
             return Results.LocalRedirect("/");
         });
 
-        // GET only clears a cookie whose account no longer exists (after "Verilerimi sil").
+        // GET only clears a cookie whose account no longer exists (after "Verilerimi sil") or was banned.
         app.MapGet("/auth/logout", async (HttpContext http, AccountService accounts) =>
         {
             var userId = http.User.GetUserId();
-            if (userId is not null && await accounts.FindAsync(userId.Value) is not null)
+            if (userId is not null && await accounts.FindAsync(userId.Value) is { BannedAtUtc: null })
             {
                 return Results.LocalRedirect("/profil");
             }

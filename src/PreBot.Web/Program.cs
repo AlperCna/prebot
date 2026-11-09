@@ -48,6 +48,7 @@ builder.Services.AddSingleton<AnnouncementStore>();
 builder.Services.AddSingleton<StatsService>();
 builder.Services.AddSingleton<WaveDispatcher>();
 builder.Services.AddSingleton<ActionLimiter>();
+builder.Services.AddSingleton<ModerationService>();
 
 // ---------- Live updates & notifications ----------
 builder.Services.AddSingleton<LiveUpdates>();
@@ -212,6 +213,18 @@ app.MapHealthChecks("/health");                                                 
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });             // process is up
 app.MapHealthChecks("/health/ready", new() { Predicate = c => c.Tags.Contains("ready") });
 app.MapAuthEndpoints();
+
+// "1 saat sustur" button on a notification: the service worker posts the personal token from the payload.
+app.MapPost("/api/sustur", async (string t, JoinTokens tokens, PreService pre, TimeProvider time) =>
+{
+    if (tokens.MuteUser(t) is not { } userId)
+    {
+        return Results.BadRequest();
+    }
+
+    await pre.MuteAsync(userId, time.GetUtcNow().UtcDateTime.AddHours(1));
+    return Results.NoContent();
+}).RequireRateLimiting("auth").DisableAntiforgery();
 
 // Riot Developer Portal proves domain ownership with a text file at the site root (production key
 // application). Set Riot:VerificationCode to the code shown in the portal; nothing is served otherwise.

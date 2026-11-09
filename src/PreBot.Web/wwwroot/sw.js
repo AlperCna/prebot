@@ -20,10 +20,10 @@ self.addEventListener('push', (event) => {
         renotify: true,
         requireInteraction: !!data.joinUrl,
         vibrate: [200, 100, 200],
-        data: { url: data.url || '/havuz', joinUrl: data.joinUrl || null },
+        data: { url: data.url || '/havuz', joinUrl: data.joinUrl || null, muteUrl: data.muteUrl || null },
         // Action buttons work on Chrome/Edge/Firefox; Safari ignores them and just opens the listing.
         actions: data.joinUrl
-            ? [{ action: 'join', title: 'Katıl' }, { action: 'skip', title: 'Geç' }]
+            ? [{ action: 'join', title: 'Katıl' }, { action: data.muteUrl ? 'mute' : 'skip', title: data.muteUrl ? '1 saat sustur' : 'Geç' }]
             : [],
     };
 
@@ -32,11 +32,16 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
+    const { url, joinUrl, muteUrl } = event.notification.data || {};
     if (event.action === 'skip') {
         return;
     }
 
-    const { url, joinUrl } = event.notification.data || {};
+    if (event.action === 'mute' && muteUrl) {
+        event.waitUntil(fetch(muteUrl, { method: 'POST' }).catch(() => {}));
+        return;
+    }
+
     const target = new URL(event.action === 'join' && joinUrl ? joinUrl : url || '/havuz', self.location.origin).href;
 
     event.waitUntil((async () => {

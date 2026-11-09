@@ -197,8 +197,17 @@ public sealed class DiscordBotService(
             return;
         }
 
-        logger.LogError("Interaction {Command} failed: {Error} {Reason}", command?.Name, result.Error, result.ErrorReason);
-        const string text = "Bir şeyler ters gitti, birazdan tekrar dene.";
+        // A closed (banned) account is not an error: tell the user why nothing happens.
+        var banned = result is ExecuteResult { Exception: { } ex0 }
+            && (ex0 is WebPoolModule.BannedException || ex0.InnerException is WebPoolModule.BannedException);
+        if (!banned)
+        {
+            logger.LogError("Interaction {Command} failed: {Error} {Reason}", command?.Name, result.Error, result.ErrorReason);
+        }
+
+        var text = banned
+            ? new WebPoolModule.BannedException().Message
+            : "Bir şeyler ters gitti, birazdan tekrar dene.";
         try
         {
             if (context.Interaction.HasResponded)

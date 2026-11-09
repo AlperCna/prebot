@@ -87,6 +87,11 @@ public static class ExternalLogin
             ?? external.FindFirstValue(ClaimTypes.Name)
             ?? "Oyuncu";
         var account = await accounts.GetOrCreateAsync(provider, key, AccountService.CleanName(name) is { Length: >= 2 } n ? n : "Oyuncu");
+        if (account.BannedAtUtc is not null)
+        {
+            await http.SignOutAsync(Scheme);
+            return Results.Redirect("/giris?hata=engel");
+        }
 
         // An external login can only start after ticking "I accept" on the login page (see /auth/login).
         await accounts.MarkTermsAcceptedAsync(account.UserId);

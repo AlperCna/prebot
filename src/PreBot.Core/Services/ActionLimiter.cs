@@ -13,6 +13,9 @@ public enum LimitedAction
 
     /// <summary>"Send me a test notification".</summary>
     TestPush,
+
+    /// <summary>Reporting a listing or a player.</summary>
+    Report,
 }
 
 /// <summary>
@@ -29,6 +32,7 @@ public sealed class ActionLimiter(TimeProvider time)
             [LimitedAction.CreateListing] = (6, TimeSpan.FromHours(1)),
             [LimitedAction.Join] = (6, TimeSpan.FromMinutes(1)),
             [LimitedAction.TestPush] = (3, TimeSpan.FromMinutes(10)),
+            [LimitedAction.Report] = (5, TimeSpan.FromHours(1)),
         };
 
     private readonly ConcurrentDictionary<(LimitedAction, ulong), Queue<DateTimeOffset>> _history = new();

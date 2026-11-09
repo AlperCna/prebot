@@ -1,0 +1,161 @@
+@page "/yonetim"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inherits UserComponentBase
+@inject ModerationService Moderation
+@inject IConfiguration Config
+
+<PageTitle>Yönetim · PreBot</PageTitle>
+
+@if (Account is null)
+{
+    return;
+}
+
+<h1 class="h3 mb-3">Yönetim</h1>
+
+@if (!IsAdmin)
+{
+    <div class="pb-card">
+        Bu sayfa yalnızca siteyi işleten kişi içindir. Kullanıcı numaran: <strong>@UserId</strong>
+        <div class="text-dim small mt-1">İşletmeci sensen bu numarayı <code>Site:AdminUserIds</code> ayarına (deneme sitesinde <code>-Yonetici @UserId</code>) ekle.</div>
+    </div>
+    return;
+}
+
+<div class="section-title mt-0">Şikâyetler (@_reports.Count)</div>
+@if (_reports.Count == 0)
+{
+    <div class="pb-card text-dim">Açık şikâyet yok.</div>
+}
+@foreach (var r in _reports)
+{
+    <div class="pb-card small">
+        <div>
+            <strong>@ReasonText(r.Reason)</strong> ·
+            <a href="/ilan/@r.ListingId">İlan #@r.ListingId</a> ·
+            <span class="text-dim">@TurkeyTime.ToLocal(r.CreatedAtUtc).ToString("dd.MM HH:mm")</span>
+        </div>
+        <div>Şikâyet eden: @Name(r.ReporterUserId) · Şikâyet edilen: @(r.ReportedUserId is { } u ? Name(u) : "ilanın kendisi")</div>
+        @if (r.Note is not null)
+        {
+            <div class="listing-note">“@r.Note”</div>
+        }
+        <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-outline-light" @onclick="() => ResolveAsync(r.Id)">Çözüldü</button>
+            @if (r.ReportedUserId is { } reported)
+            {
+                <button class="btn btn-sm btn-outline-danger" @onclick="() => BanAsync(reported, r.Id)">@Name(reported) hesabını kapat</button>
+            }
+        </div>
+    </div>
+}
+
+<div class="section-title">Açık ilanlar (@_listings.Count)</div>
+@if (_listings.Count == 0)
+{
+    <div class="pb-card text-dim">Açık ilan yok.</div>
+}
+@foreach (var v in _listings)
+{
+    <div class="pb-card small d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div><a href="/ilan/@v.Listing.Id">#@v.Listing.Id @Format.RoleLabel(v.Listing.Role) lazım</a> · @Name(v.Listing.HostUserId)</div>
+        <button class="btn btn-sm btn-outline-danger" @onclick="() => CloseAsync(v.Listing.Id, v.Listing.HostUserId)">İlanı kapat</button>
+    </div>
+}
+
+<div class="section-title">Son hesaplar</div>
+<div class="pb-card small">
+    @foreach (var a in _accounts)
+    {
+        <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-secondary-subtle">
+            <div>
+                <strong>@a.DisplayName</strong> <span class="text-dim">#@a.Id · @a.Provider · @TurkeyTime.ToLocal(a.CreatedAtUtc).ToString("dd.MM HH:mm")</span>
+                @if (a.BannedAtUtc is not null)
+                {
+                    <span class="text-warning ms-1">kapatıldı</span>
+                }
+            </div>
+            @if ((ulong)a.Id != UserId)
+            {
+                @if (a.BannedAtUtc is null)
+                {
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => BanAsync((ulong)a.Id, null)">Kapat</button>
+                }
+                else
+                {
+                    <button class="btn btn-sm btn-outline-light" @onclick="() => UnbanAsync((ulong)a.Id)">Aç</button>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<ReportView> _reports = [];
+    private IReadOnlyList<ListingView> _listings = [];
+    private IReadOnlyList<UserAccount> _accounts = [];
+    private IReadOnlyDictionary<ulong, string> _names = new Dictionary<ulong, string>();
+
+    /// <summary>Site:AdminUserIds: comma-separated account numbers of the people who run this site.</summary>
+    private bool IsAdmin => (Config["Site:AdminUserIds"] ?? "")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Contains(UserId.ToString());
+
+    protected override async Task LoadAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        _reports = await Moderation.GetOpenReportsAsync();
+        _listings = await Pre.GetOpenListingsAsync(Communities.Web);
+        _accounts = await Moderation.GetRecentAccountsAsync();
+        _names = await Accounts.GetDisplayNamesAsync(
+            _reports.Select(r => r.ReporterUserId)
+                .Concat(_reports.Where(r => r.ReportedUserId is not null).Select(r => r.ReportedUserId!.Value))
+                .Concat(_listings.Select(v => v.Listing.HostUserId)));
+    }
+
+    private string Name(ulong userId) => _names.GetValueOrDefault(userId, $"#{userId}");
+
+    private static string ReasonText(ReportReason reason) => reason switch
+    {
+        ReportReason.NoShow => "Gelmedi",
+        ReportReason.Toxic => "Toksik davranış",
+        ReportReason.FakeInfo => "Sahte rank / Riot ID",
+        ReportReason.Forbidden => "Boost / satış / spam",
+        _ => "Diğer",
+    };
+
+    private async Task ResolveAsync(int reportId)
+    {
+        await Moderation.ResolveReportAsync(reportId);
+        await LoadAsync();
+    }
+
+    private async Task BanAsync(ulong userId, int? reportId)
+    {
+        await Moderation.BanAsync(userId);
+        if (reportId is { } id)
+        {
+            await Moderation.ResolveReportAsync(id);
+        }
+
+        Live.PublishChanged();
+        await LoadAsync();
+    }
+
+    private async Task UnbanAsync(ulong userId)
+    {
+        await Moderation.UnbanAsync(userId);
+        await LoadAsync();
+    }
+
+    private async Task CloseAsync(int listingId, ulong hostUserId)
+    {
+        await Actions.CancelAsync(listingId, hostUserId);
+        await LoadAsync();
+    }
+}

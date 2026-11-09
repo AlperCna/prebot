@@ -41,6 +41,23 @@ public enum MetricKind
     FilledViaLobby,
 }
 
+public enum ReportReason
+{
+    /// <summary>Joined and did not show up.</summary>
+    NoShow,
+
+    /// <summary>Insults, harassment, toxicity.</summary>
+    Toxic,
+
+    /// <summary>Fake rank or Riot ID.</summary>
+    FakeInfo,
+
+    /// <summary>Boosting, account selling, betting, spam.</summary>
+    Forbidden,
+
+    Other,
+}
+
 public enum SeatReleaseReason
 {
     /// <summary>The player gave the seat back themselves.</summary>

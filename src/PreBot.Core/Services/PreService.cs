@@ -471,6 +471,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
                 .ToListAsync(ct))
             .ToHashSet();
 
+        excluded.UnionWith(await SilencedAsync(db, now, ct));
+
         var criteria = Criteria(listing);
         var notify = new List<ulong>();
         var reachable = listing.GuildId == Communities.Web ? await ReachableAsync(db, pool.Select(a => a.UserId), ct) : null;
@@ -546,7 +548,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var now = Now;
         var me = await db.Availabilities.SingleOrDefaultAsync(a => a.GuildId == communityId && a.UserId == userId && a.ExpiresAtUtc > now, ct);
-        if (me is null || (me.LastPingedAtUtc is { } last && now - last < PingCooldown))
+        if (me is null || (me.LastPingedAtUtc is { } last && now - last < PingCooldown)
+            || (await SilencedAsync(db, now, ct)).Contains(userId))
         {
             return null;
         }
@@ -574,6 +577,30 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         Record(db, MetricKind.WaveSent, best, now, wave: wave, value: 1);
         await db.SaveChangesAsync(ct);
         return new WaveResult(best.Id, wave, [userId]);
+    }
+
+    /// <summary>Players who must not be notified right now: muted ("sustur") or banned.</summary>
+    private static async Task<HashSet<ulong>> SilencedAsync(PreBotDbContext db, DateTime now, CancellationToken ct)
+    {
+        var muted = await db.Players.Where(p => p.MutedUntilUtc != null && p.MutedUntilUtc > now).Select(p => p.UserId).ToListAsync(ct);
+        var banned = await db.Accounts.Where(a => a.BannedAtUtc != null).Select(a => a.Id).ToListAsync(ct);
+        return muted.Concat(banned.Select(b => (ulong)b)).ToHashSet();
+    }
+
+    /// <summary>Stop (or resume, with null) notifications about other people's listings until the given time.</summary>
+    public async Task MuteAsync(ulong userId, DateTime? untilUtc, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var player = await EnsurePlayerAsync(db, userId, Now, ct);
+        player.MutedUntilUtc = untilUtc;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<DateTime?> GetMutedUntilAsync(ulong userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        return await db.Players.Where(p => p.UserId == userId && p.MutedUntilUtc > now).Select(p => p.MutedUntilUtc).SingleOrDefaultAsync(ct);
     }
 
     /// <summary>Website players we can reach while the site is closed: a push device or a Discord account (DM).</summary>
@@ -761,6 +788,9 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         await context.AlertSubscriptions.Where(a => a.UserId == userId).ExecuteDeleteAsync(ct);
         await context.PushSubscriptions.Where(p => p.UserId == userId).ExecuteDeleteAsync(ct);
         await context.Players.Where(p => p.UserId == userId).ExecuteDeleteAsync(ct);
+        await context.ListingReports
+            .Where(r => r.ReporterUserId == userId || r.ReportedUserId == userId || hostedIds.Contains(r.ListingId))
+            .ExecuteDeleteAsync(ct);
         await tx.CommitAsync(ct);
 
         var removed = hosted

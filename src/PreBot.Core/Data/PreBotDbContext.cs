@@ -15,6 +15,7 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
     public DbSet<AlertSubscription> AlertSubscriptions => Set<AlertSubscription>();
     public DbSet<ListingAnnouncement> ListingAnnouncements => Set<ListingAnnouncement>();
     public DbSet<MetricEvent> MetricEvents => Set<MetricEvent>();
+    public DbSet<ListingReport> ListingReports => Set<ListingReport>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -50,6 +51,8 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
         });
 
         modelBuilder.Entity<ListingAnnouncement>(e => e.HasIndex(a => a.ListingId));
+
+        modelBuilder.Entity<ListingReport>(e => e.HasIndex(r => r.ResolvedAtUtc));
 
         modelBuilder.Entity<MetricEvent>(e =>
         {

@@ -84,6 +84,58 @@ public sealed partial class InviteLoginTests : IDisposable
     }
 
     [Fact]
+    public async Task Banned_player_is_signed_out_and_cannot_sign_in_again()
+    {
+        var client = Client("flex-2026");
+        await LoginAsync(client, "Troll", "flex-2026");
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/havuz")).StatusCode);
+
+        var services = _factories[^1].Services;
+        var account = await Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+            .GetRequiredService<PreBot.Core.Services.AccountService>(services).GetOrCreateAsync("invite", "troll", "Troll");
+        await Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+            .GetRequiredService<PreBot.Core.Services.ModerationService>(services).BanAsync(account.UserId);
+
+        // The open session ends (pages send it to the cookie-clearing logout)...
+        Assert.Equal("/", (await client.GetAsync("/auth/logout")).Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/havuz")).StatusCode);
+        // ...and signing in again is refused.
+        Assert.Equal("/giris?hata=engel", (await LoginAsync(client, "Troll", "flex-2026")).Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Mute_button_on_a_notification_mutes_only_the_owner_of_the_token()
+    {
+        var client = Client("flex-2026");
+        await LoginAsync(client, "Sessiz", "flex-2026");
+        var services = _factories[^1].Services;
+        var account = await Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+            .GetRequiredService<PreBot.Core.Services.AccountService>(services).GetOrCreateAsync("invite", "sessiz", "Sessiz");
+        var tokens = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+            .GetRequiredService<PreBot.Web.Push.JoinTokens>(services);
+        var pre = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+            .GetRequiredService<PreBot.Core.Services.PreService>(services);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/sustur?t=forged", null)).StatusCode);
+        Assert.Null(await pre.GetMutedUntilAsync(account.UserId));
+
+        var ok = await client.PostAsync($"/api/sustur?t={Uri.EscapeDataString(tokens.CreateMute(account.UserId))}", null);
+        Assert.Equal(HttpStatusCode.NoContent, ok.StatusCode);
+        Assert.NotNull(await pre.GetMutedUntilAsync(account.UserId));
+    }
+
+    [Fact]
+    public async Task Admin_page_is_only_for_configured_admins()
+    {
+        var client = Client("flex-2026");
+        await LoginAsync(client, "Alper", "flex-2026");
+
+        var page = await client.GetStringAsync("/yonetim");
+        Assert.Contains("yalnızca siteyi işleten", page);
+        Assert.DoesNotContain("Şikâyetler", page);
+    }
+
+    [Fact]
     public async Task Without_an_invite_code_the_form_and_endpoint_do_not_exist()
     {
         var client = Client(null);

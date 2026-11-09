@@ -38,9 +38,9 @@ public abstract class UserComponentBase : ComponentBase, IDisposable
         var state = AuthState is null ? null : await AuthState;
         var userId = state?.User.GetUserId();
         Account = userId is null ? null : await Accounts.FindAsync(userId.Value);
-        if (Account is null)
+        if (Account is null || Account.BannedAtUtc is not null)
         {
-            // Cookie points to an account that no longer exists (e.g. data deleted): sign out.
+            // Cookie points to an account that no longer exists (data deleted) or was banned: sign out.
             Navigation.NavigateTo("/auth/logout", forceLoad: true);
             return;
         }

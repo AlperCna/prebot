@@ -4,6 +4,8 @@
 @inherits UserComponentBase
 @inject IJSRuntime JS
 @inject PreBot.Web.Push.JoinTokens JoinTokens
+@inject ModerationService Moderation
+@inject ActionLimiter Limiter
 
 <PageTitle>İlan · PreBot</PageTitle>
 
@@ -87,6 +89,10 @@
                 @if (insider)
                 {
                     <RiotIdBadge RiotId="@slot.RiotId" Hint="Riot ID kayıtlı değil, kendisine sor." />
+                }
+                @if (isHost && _noShows.GetValueOrDefault(slot.UserId) is var missed && missed > 0)
+                {
+                    <span class="small text-warning ms-1" title="Daha önceki ilanlarda ilan sahipleri 'Gelmedi' dedi">⚠️ daha önce @missed kez gelmedi</span>
                 }
             </div>
         }
@@ -183,7 +189,51 @@
                     data-share-url="@Navigation.ToAbsoluteUri($"/ilan/{Id}")">🔗 Paylaş (WhatsApp, Discord…)</button>
         }
         <a class="btn btn-link" href="/havuz">Havuza dön</a>
+        <button type="button" class="btn btn-link text-dim small ms-auto" @onclick="() => _reportOpen = !_reportOpen">🚩 Şikâyet et</button>
     </div>
+
+    @if (_reportOpen)
+    {
+        <div class="lobby-box mt-3 small">
+            @if (_reportSent)
+            {
+                <div>✓ Şikâyetin iletildi, teşekkürler. İncelenecek.</div>
+            }
+            else
+            {
+                <div class="row g-2">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Kimi?</label>
+                        <select class="form-select form-select-sm" @bind="_reportTarget">
+                            <option value="">İlanın kendisi</option>
+                            @if (l.HostUserId != UserId)
+                            {
+                                <option value="@l.HostUserId">İlan sahibi: @_names.GetValueOrDefault(l.HostUserId, "Bir oyuncu")</option>
+                            }
+                            @foreach (var slot in _view.ActiveSlots.Where(s => s.UserId != UserId))
+                            {
+                                <option value="@slot.UserId">@_names.GetValueOrDefault(slot.UserId, "Bir oyuncu")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Neden?</label>
+                        <select class="form-select form-select-sm" @bind="_reportReason">
+                            <option value="@ReportReason.NoShow">Katıldı ama gelmedi</option>
+                            <option value="@ReportReason.Toxic">Hakaret, taciz, toksik davranış</option>
+                            <option value="@ReportReason.FakeInfo">Sahte rank ya da Riot ID</option>
+                            <option value="@ReportReason.Forbidden">Boost, hesap satışı, bahis, spam</option>
+                            <option value="@ReportReason.Other">Diğer</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <input class="form-control form-control-sm" maxlength="300" placeholder="Kısa açıklama (isteğe bağlı)" @bind="_reportNote" />
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline-light mt-2" disabled="@(_busy || !Ready)" @onclick="ReportAsync">Gönder</button>
+            }
+        </div>
+    }
 </div>
 
 @code {
@@ -199,6 +249,12 @@
 
     private ListingView? _view;
     private string? _viewerRiotId;
+    private IReadOnlyDictionary<ulong, int> _noShows = new Dictionary<ulong, int>();
+    private bool _reportOpen;
+    private bool _reportSent;
+    private string _reportTarget = "";
+    private ReportReason _reportReason = ReportReason.NoShow;
+    private string? _reportNote;
     private IReadOnlyDictionary<ulong, string> _names = new Dictionary<ulong, string>();
     private bool _busy;
     private string? _message;
@@ -222,6 +278,9 @@
         {
             _names = await Accounts.GetDisplayNamesAsync(
                 _view.ActiveSlots.Select(s => s.UserId).Append(_view.Listing.HostUserId));
+            _noShows = _view.Listing.HostUserId == UserId
+                ? await Moderation.GetNoShowCountsAsync(_view.ActiveSlots.Select(s => s.UserId))
+                : new Dictionary<ulong, int>();
         }
     }
 
@@ -285,6 +344,19 @@
         (await Actions.ReportNoShowAsync(Id, UserId)).Result == HostActionResult.Done
             ? null
             : "Çıkarılacak kimse yok.");
+
+    private async Task ReportAsync()
+    {
+        if (!Limiter.TryAcquire(LimitedAction.Report, UserId, out var wait))
+        {
+            _message = ActionLimiter.RetryMessage(wait);
+            return;
+        }
+
+        ulong? target = ulong.TryParse(_reportTarget, out var t) ? t : null;
+        await Moderation.ReportAsync(Id, UserId, target, _reportReason, _reportNote);
+        _reportSent = true;
+    }
 
     private Task FilledViaLobbyAsync() => RunAsync(async () =>
         (await Actions.MarkFilledViaLobbyAsync(Id, UserId)).Result == HostActionResult.Done ? null : "İlan zaten kapalı.");

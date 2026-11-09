@@ -24,8 +24,18 @@ public sealed class WebPoolModule(IWebPool pool, PreBotOptions options) : Intera
         "rol/rank'ı, müsaitlik süreni, ilanlarını ve istersen Riot ID'ni saklar; yalnızca takım arkadaşı bulmak için. " +
         "Ayrıntılar sitedeki Gizlilik sayfasında. Hepsini `/verilerimi-sil` ile anında silebilirsin. 16 yaşından küçüksen kullanma.";
 
-    private Task<ulong> MeAsync() =>
-        pool.AccountForDiscordUserAsync(Context.User.Id, (Context.User as IGuildUser)?.DisplayName ?? Context.User.GlobalName ?? Context.User.Username);
+    private const string BannedText = "Bu PreBot hesabı kapatıldı. Bir yanlışlık olduğunu düşünüyorsan sitedeki İletişim sayfasına yaz.";
+
+    /// <summary>The caller's website account; throws <see cref="BannedException"/> if the operator closed it.</summary>
+    private async Task<ulong> MeAsync()
+    {
+        var me = await pool.AccountForDiscordUserAsync(
+            Context.User.Id, (Context.User as IGuildUser)?.DisplayName ?? Context.User.GlobalName ?? Context.User.Username);
+        return await pool.IsBannedAsync(me) ? throw new BannedException() : me;
+    }
+
+    /// <summary>Raised for banned accounts; turned into a short reply by <see cref="DiscordBotService"/>.</summary>
+    public sealed class BannedException() : Exception(BannedText);
 
     // ---------- Pool ----------
 
