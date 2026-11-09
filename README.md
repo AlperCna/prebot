@@ -113,7 +113,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deneme-durdur.ps1
 
 Bilgisayarın açık kalmalı. Tünel adresi her açılışta değişir; adres değişince herkes bildirimleri yeniden açmalı. Veriler `%LOCALAPPDATA%\PreBot-deneme` klasöründe, geliştirme verilerinden ayrı tutulur. Davet kodunu bilen herkes istediği isimle girebilir; bu yüzden yalnızca kapalı arkadaş denemesi içindir.
 
-Deneme tutarsa ücretsiz kalıcı sunucu için: öğrenciysen [docs/AZURE-KURULUM.md](docs/AZURE-KURULUM.md) (Azure for Students, kartsız, sabit adres dahil); diğer seçenekler [arastirma/reports/Ücretsiz sunucu alternatifleri.md](arastirma/reports/%C3%9Ccretsiz%20sunucu%20alternatifleri.md) ve [docs/UCRETSIZ-SUNUCU.md](docs/UCRETSIZ-SUNUCU.md).
+Kalıcı ve ücretsiz sunucu seçenekleri için: [arastirma/reports/Ücretsiz sunucu alternatifleri.md](arastirma/reports/%C3%9Ccretsiz%20sunucu%20alternatifleri.md). Herhangi bir Ubuntu sunucuda kurulum tek komut: `deploy/sunucu-kurulum.sh`.
 
 ## Yayına alma (VPS + Docker + otomatik HTTPS)
 
@@ -216,7 +216,6 @@ Güncel plan ve kararlar `arastirma/` klasöründe:
 
 - [PreBot kesin karar](arastirma/reports/PreBot%20kesin%20karar.md): sorunu çözüyor mu, talep ve rakipler, devam/dur eşiği.
 - [PreBot geliştirme yol haritası](arastirma/reports/PreBot%20geliştirme%20yol%20haritası.md): Faz 0–3 planı.
-- [Durum raporu](docs/DURUM-RAPORU.md).
 
 Sıradaki büyük işler: yayına alma ve ilk kullanıcılar, Discord ile web'in tek havuzda birleşmesi, parti boyutu yardımcısı, bildirim hijyeni (sessize alma, sessiz saatler), engelleme ve şikâyet, Riot doğrulaması (üretim anahtarı gelince).
 
