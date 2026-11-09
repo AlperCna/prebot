@@ -151,12 +151,10 @@
         }
         @if (l.Status == ListingStatus.Open)
         {
-            <button class="btn btn-outline-light" @onclick="ShareAsync">@(_shareState switch
-            {
-                "copied" => "Kopyalandı ✓",
-                "shared" => "Paylaşıldı ✓",
-                _ => "🔗 Paylaş (WhatsApp, Discord…)",
-            })</button>
+            <button type="button" class="btn btn-outline-light"
+                    data-share-title="PreBot"
+                    data-share-text="@ShareText(l)"
+                    data-share-url="@Navigation.ToAbsoluteUri($"/ilan/{Id}")">🔗 Paylaş (WhatsApp, Discord…)</button>
         }
         <a class="btn btn-link" href="/havuz">Havuza dön</a>
     </div>
@@ -177,7 +175,6 @@
     private string? _viewerRiotId;
     private IReadOnlyDictionary<ulong, string> _names = new Dictionary<ulong, string>();
     private bool _busy;
-    private string? _shareState;
     private string? _message;
 
     protected override async Task LoadAsync()
@@ -286,16 +283,8 @@
         };
     }
 
-    private async Task ShareAsync()
-    {
-        if (_view is null)
-        {
-            return;
-        }
-
-        var l = _view.Listing;
-        var missing = l.SlotsNeeded - l.SlotsFilled;
-        var text = $"Flex için {Format.RoleLabel(l.Role)} lazım ({TurkishNames.RankRange(l.MinRank, l.MaxRank)}), {missing} kişi eksik! İlk basan alır:";
-        _shareState = await JS.InvokeAsync<string>("prebot.share", "PreBot", text, Navigation.ToAbsoluteUri($"/ilan/{Id}").ToString());
-    }
+    // Shared from the browser itself (see prebot.js): iPhone only opens the share sheet inside the tap.
+    private static string ShareText(Listing l) =>
+        $"Flex için {Format.RoleLabel(l.Role)} lazım ({TurkishNames.RankRange(l.MinRank, l.MaxRank)}), " +
+        $"{l.SlotsNeeded - l.SlotsFilled} kişi eksik! İlk basan alır:";
 }

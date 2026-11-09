@@ -87,7 +87,11 @@ window.prebot = {
             if (!window.prebot.push.supported()) {
                 return { error: 'unsupported' };
             }
-            const permission = await Notification.requestPermission();
+            // On iPhone the permission prompt only appears if it is requested inside the tap itself.
+            // The click listener at the bottom of this file starts it right in the tap; we just wait here.
+            const pending = window.prebot.push._pending;
+            window.prebot.push._pending = null;
+            const permission = await (pending || Notification.requestPermission());
             if (permission !== 'granted') {
                 return { error: permission };
             }
@@ -148,3 +152,26 @@ window.prebot = {
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => { /* not critical */ });
 }
+
+// Things Safari (iPhone) only allows during the user's tap, before any round trip to the server.
+document.addEventListener('click', (event) => {
+    // "Bildirimleri aç": ask for permission inside the tap; prebot.push.subscribe() picks up the answer.
+    const enable = event.target.closest('[data-push-enable]');
+    if (enable && window.prebot.push.supported() && Notification.permission === 'default') {
+        window.prebot.push._pending = Notification.requestPermission();
+    }
+
+    // "Paylaş": open the share sheet directly from the tap (no server round trip in between).
+    const share = event.target.closest('[data-share-url]');
+    if (share) {
+        event.preventDefault();
+        const label = share.textContent;
+        window.prebot.share(share.dataset.shareTitle || 'PreBot', share.dataset.shareText || '', share.dataset.shareUrl)
+            .then((result) => {
+                if (result === 'copied' || result === 'shared') {
+                    share.textContent = result === 'copied' ? 'Kopyalandı ✓' : 'Paylaşıldı ✓';
+                    setTimeout(() => { share.textContent = label; }, 3000);
+                }
+            });
+    }
+}, true);

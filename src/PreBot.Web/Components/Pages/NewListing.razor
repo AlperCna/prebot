@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inherits UserComponentBase
+@inject SubscriptionService Subscriptions
 
 <PageTitle>İlan aç · PreBot</PageTitle>
 
@@ -66,6 +67,14 @@
                       OnSaved="riot => _riotId = riot" />
     }
 
+    @if (_pushDevices == 0 && Account.Provider != "discord")
+    {
+        <div class="alert alert-warning small mt-3 mb-0">
+            🔕 Bu hesapta bildirimler kapalı: biri katılınca sana ancak bu sayfa açıkken haber verebilirim.
+            <a href="/bildirimler">Bildirimleri aç</a> ki oyundayken de katılanın Riot ID'si telefonuna gelsin.
+        </div>
+    }
+
     @if (_message is not null)
     {
         <div class="alert alert-warning mt-3 mb-0">@((MarkupString)_message)</div>
@@ -86,7 +95,13 @@
     private bool _busy;
     private string? _message;
 
-    protected override async Task LoadAsync() => _riotId = await Pre.GetRiotIdAsync(UserId);
+    private int _pushDevices = -1;
+
+    protected override async Task LoadAsync()
+    {
+        _riotId = await Pre.GetRiotIdAsync(UserId);
+        _pushDevices = await Subscriptions.CountPushDevicesAsync(UserId);
+    }
 
     private async Task CreateAsync()
     {

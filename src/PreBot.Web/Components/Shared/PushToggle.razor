@@ -44,7 +44,7 @@
                 <div class="fw-semibold">🔔 Sekme kapalıyken de haber al</div>
                 <div class="small text-dim">Uygun ilan açılınca telefonuna ya da bilgisayarına bildirim gelir, tek dokunuşla katılırsın.</div>
             </div>
-            <button class="btn btn-gold" disabled="@_busy" @onclick="EnableAsync">Bu cihazda bildirimleri aç</button>
+            <button class="btn btn-gold" data-push-enable disabled="@_busy" @onclick="EnableAsync">Bu cihazda bildirimleri aç</button>
         </div>
     }
     else
