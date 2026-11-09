@@ -14,6 +14,7 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
     public DbSet<WebPushSubscription> PushSubscriptions => Set<WebPushSubscription>();
     public DbSet<AlertSubscription> AlertSubscriptions => Set<AlertSubscription>();
     public DbSet<ListingAnnouncement> ListingAnnouncements => Set<ListingAnnouncement>();
+    public DbSet<MetricEvent> MetricEvents => Set<MetricEvent>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -49,6 +50,12 @@ public sealed class PreBotDbContext(DbContextOptions<PreBotDbContext> options) :
         });
 
         modelBuilder.Entity<ListingAnnouncement>(e => e.HasIndex(a => a.ListingId));
+
+        modelBuilder.Entity<MetricEvent>(e =>
+        {
+            e.HasIndex(m => new { m.CommunityId, m.Kind, m.AtUtc });
+            e.HasIndex(m => m.ListingId);
+        });
 
         modelBuilder.Entity<WebPushSubscription>(e =>
         {

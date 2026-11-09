@@ -27,6 +27,29 @@ public enum Rank
     MasterPlus = 7,
 }
 
+public enum MetricKind
+{
+    ListingOpened,
+    WaveSent,
+    SeatClaimed,
+    ListingFilled,
+    SeatReleased,
+    ListingCancelled,
+    ListingExpired,
+}
+
+public enum SeatReleaseReason
+{
+    /// <summary>The player gave the seat back themselves.</summary>
+    Voluntary,
+
+    /// <summary>The host reported that the player did not show up.</summary>
+    NoShow,
+
+    /// <summary>The player deleted their data.</summary>
+    AccountDeleted,
+}
+
 public enum ListingStatus
 {
     Open,

@@ -58,6 +58,41 @@ public sealed class StatsTests : IDisposable
     }
 
     [Fact]
+    public async Task History_survives_when_the_host_deletes_their_data()
+    {
+        var a = await OpenAsync(1);
+        _t.Time.Advance(TimeSpan.FromMinutes(3));
+        await _t.Service.TryClaimAsync(a, 10);
+
+        await _t.Service.DeleteUserDataAsync(1);
+
+        var s = await _stats.GetAsync(Web, TimeSpan.FromDays(7));
+        Assert.Equal(1, s.ListingsOpened);
+        Assert.Equal(1, s.ListingsFilled);
+        Assert.Equal(3, s.MedianMinutesToFill!.Value, 3);
+    }
+
+    [Fact]
+    public async Task No_shows_are_counted_apart_from_players_who_leave_on_their_own()
+    {
+        var a = await OpenAsync(1);
+        await _t.Service.TryClaimAsync(a, 10);
+        await _t.Service.ReopenForNoShowAsync(a, 1); // 10 did not show up
+        await _t.Service.TryClaimAsync(a, 11);
+        await _t.Service.LeaveAsync(a, 11);          // 11 changed their mind
+
+        var s = await _stats.GetAsync(Web, TimeSpan.FromDays(7));
+
+        Assert.Equal(2, s.SeatsTaken);
+        Assert.Equal(1, s.NoShows);
+        Assert.Equal(1, s.ListingsFilled); // it did fill once
+        await using var db = _t.NewContext();
+        Assert.Equal(
+            [SeatReleaseReason.NoShow, SeatReleaseReason.Voluntary],
+            db.ListingSlots.OrderBy(x => x.Id).Select(x => x.ReleaseReason!.Value).ToList());
+    }
+
+    [Fact]
     public async Task Old_listings_fall_out_of_the_window_and_other_communities_are_ignored()
     {
         await OpenAsync(1);

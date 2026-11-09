@@ -229,6 +229,9 @@ namespace PreBot.Core.Data.Migrations
                     b.Property<int>("ListingId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("ReleaseReason")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("Released")
                         .HasColumnType("INTEGER");
 
@@ -244,6 +247,42 @@ namespace PreBot.Core.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("ListingSlots");
+                });
+
+            modelBuilder.Entity("PreBot.Core.Domain.MetricEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("AtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CommunityId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ListingId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Reason")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Value")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Wave")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ListingId");
+
+                    b.HasIndex("CommunityId", "Kind", "AtUtc");
+
+                    b.ToTable("MetricEvents");
                 });
 
             modelBuilder.Entity("PreBot.Core.Domain.Player", b =>

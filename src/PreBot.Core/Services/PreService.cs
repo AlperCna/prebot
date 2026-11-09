@@ -152,6 +152,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         };
         db.Listings.Add(listing);
         await db.SaveChangesAsync(ct);
+        Record(db, MetricKind.ListingOpened, listing, now, value: slotsNeeded);
+        await db.SaveChangesAsync(ct);
 
         var pool = await db.Availabilities.AsNoTracking()
             .Where(a => a.GuildId == guildId && a.ExpiresAtUtc > now)
@@ -282,23 +284,35 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
                 .SetProperty(l => l.NextWaveAtUtc, (DateTime?)null), ct);
 
         var info = await db.Listings.Where(l => l.Id == listingId)
-            .Select(l => new { l.GuildId, l.HostUserId })
+            .Select(l => new { l.GuildId, l.HostUserId, l.CreatedAtUtc })
             .SingleAsync(ct);
 
         // They are playing now: take them out of this server's pool.
         await db.Availabilities.Where(a => a.GuildId == info.GuildId && a.UserId == userId).ExecuteDeleteAsync(ct);
+
+        var secondsOpen = (int)(now - info.CreatedAtUtc).TotalSeconds;
+        Record(db, MetricKind.SeatClaimed, info.GuildId, listingId, now, value: secondsOpen);
+        if (filled > 0)
+        {
+            Record(db, MetricKind.ListingFilled, info.GuildId, listingId, now, value: secondsOpen);
+        }
+
+        await db.SaveChangesAsync(ct);
 
         await tx.CommitAsync(ct);
         return new ClaimOutcome(filled > 0 ? ClaimResult.ClaimedAndFilled : ClaimResult.Claimed, info.HostUserId);
     }
 
     /// <summary>A player gives their seat back. The listing reopens and notifies again.</summary>
-    public async Task<LeaveResult> LeaveAsync(int listingId, ulong userId, CancellationToken ct = default)
+    public Task<LeaveResult> LeaveAsync(int listingId, ulong userId, CancellationToken ct = default) =>
+        LeaveAsync(listingId, userId, SeatReleaseReason.Voluntary, ct);
+
+    private async Task<LeaveResult> LeaveAsync(int listingId, ulong userId, SeatReleaseReason reason, CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        if (await ReleaseSeatAsync(db, listingId, userId, Now, ct))
+        if (await ReleaseSeatAsync(db, listingId, userId, reason, Now, ct))
         {
             await tx.CommitAsync(ct);
             return LeaveResult.Left;
@@ -330,7 +344,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             .Select(s => (ulong?)s.UserId)
             .FirstOrDefaultAsync(ct);
 
-        if (latest is null || !await ReleaseSeatAsync(db, listingId, latest.Value, Now, ct))
+        if (latest is null || !await ReleaseSeatAsync(db, listingId, latest.Value, SeatReleaseReason.NoShow, Now, ct))
         {
             await tx.RollbackAsync(ct);
             return new HostActionOutcome(HostActionResult.NothingToDo);
@@ -351,6 +365,9 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
                 .SetProperty(l => l.NextWaveAtUtc, (DateTime?)null), ct);
         if (cancelled > 0)
         {
+            var community = await db.Listings.Where(l => l.Id == listingId).Select(l => l.GuildId).SingleAsync(ct);
+            Record(db, MetricKind.ListingCancelled, community, listingId, Now);
+            await db.SaveChangesAsync(ct);
             return new HostActionOutcome(HostActionResult.Done);
         }
 
@@ -457,6 +474,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             });
         }
 
+        Record(db, MetricKind.WaveSent, listing, now, wave: wave, value: notify.Count);
+
         // Nobody fits this wave, but the wider next wave already has someone: don't make the host wait
         // minutes for nothing. If the wider wave is empty too, keep the normal delay so players who
         // become available in the meantime are still caught.
@@ -552,6 +571,17 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(l => l.Status, ListingStatus.Expired)
                     .SetProperty(l => l.NextWaveAtUtc, (DateTime?)null), ct);
+
+            var expired = await db.Listings.AsNoTracking()
+                .Where(l => expiredIds.Contains(l.Id) && l.Status == ListingStatus.Expired)
+                .Select(l => new { l.Id, l.GuildId })
+                .ToListAsync(ct);
+            foreach (var l in expired)
+            {
+                Record(db, MetricKind.ListingExpired, l.GuildId, l.Id, now);
+            }
+
+            await db.SaveChangesAsync(ct);
         }
 
         return new SweepResult(expiredAvailabilities, expiredIds);
@@ -574,7 +604,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         var left = new List<int>();
         foreach (var listingId in heldSeats)
         {
-            if (await LeaveAsync(listingId, userId, ct) == LeaveResult.Left)
+            if (await LeaveAsync(listingId, userId, SeatReleaseReason.AccountDeleted, ct) == LeaveResult.Left)
             {
                 left.Add(listingId);
             }
@@ -616,6 +646,23 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
     private static MatchCriteria Criteria(Listing l) => new(l.Role, l.MinRank, l.MaxRank, l.HostUserId);
 
+    private static void Record(PreBotDbContext db, MetricKind kind, Listing listing, DateTime now, int? wave = null, int? value = null) =>
+        Record(db, kind, listing.GuildId, listing.Id, now, wave, value);
+
+    private static void Record(
+        PreBotDbContext db, MetricKind kind, ulong communityId, int listingId, DateTime now,
+        int? wave = null, int? value = null, SeatReleaseReason? reason = null) =>
+        db.MetricEvents.Add(new MetricEvent
+        {
+            AtUtc = now,
+            Kind = kind,
+            CommunityId = communityId,
+            ListingId = listingId,
+            Wave = wave,
+            Value = value,
+            Reason = reason,
+        });
+
     private static async Task<Player> EnsurePlayerAsync(PreBotDbContext db, ulong userId, DateTime now, CancellationToken ct)
     {
         var player = db.Players.Local.FirstOrDefault(p => p.UserId == userId)
@@ -630,17 +677,23 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
     }
 
     /// <summary>Gives a seat back and reopens the listing. Must run inside a transaction.</summary>
-    private async Task<bool> ReleaseSeatAsync(PreBotDbContext db, int listingId, ulong userId, DateTime now, CancellationToken ct)
+    private async Task<bool> ReleaseSeatAsync(
+        PreBotDbContext db, int listingId, ulong userId, SeatReleaseReason reason, DateTime now, CancellationToken ct)
     {
         var released = await db.ListingSlots
             .Where(s => s.ListingId == listingId && s.UserId == userId && !s.Released)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(x => x.Released, true)
-                .SetProperty(x => x.ReleasedAtUtc, now), ct);
+                .SetProperty(x => x.ReleasedAtUtc, now)
+                .SetProperty(x => x.ReleaseReason, reason), ct);
         if (released == 0)
         {
             return false;
         }
+
+        var community = await db.Listings.Where(l => l.Id == listingId).Select(l => l.GuildId).SingleAsync(ct);
+        Record(db, MetricKind.SeatReleased, community, listingId, now, reason: reason);
+        await db.SaveChangesAsync(ct);
 
         var minExpiry = now.AddMinutes(options.ReopenMinutes);
         await db.Listings

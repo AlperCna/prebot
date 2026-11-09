@@ -14,11 +14,15 @@ public sealed record StatsSummary(
     double? FastestMinutesToFill,
     int NotificationsSent,
     int ActivePlayers,
-    int AvailableNow);
+    int AvailableNow,
+    double? P90MinutesToFill = null,
+    int SeatsTaken = 0,
+    int NoShows = 0);
 
 /// <summary>
 /// The numbers that decide whether PreBot solves the problem: how many "need 1 more" listings
-/// actually got filled, and how fast.
+/// actually got filled, and how fast. Computed from the anonymous <see cref="MetricEvent"/> log, so
+/// history does not change when someone deletes their data.
 /// </summary>
 public sealed class StatsService(IDbContextFactory<PreBotDbContext> dbFactory, TimeProvider time)
 {
@@ -28,52 +32,80 @@ public sealed class StatsService(IDbContextFactory<PreBotDbContext> dbFactory, T
         var since = now - window;
         await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-        var listings = await db.Listings.AsNoTracking()
-            .Where(l => l.GuildId == communityId && l.CreatedAtUtc >= since)
-            .Select(l => new
-            {
-                l.Id,
-                l.HostUserId,
-                l.Status,
-                l.CreatedAtUtc,
-                Seats = l.Slots.Select(s => new { s.UserId, s.ClaimedAtUtc, s.Released }).ToList(),
-            })
+        var openedIds = await db.MetricEvents.AsNoTracking()
+            .Where(e => e.CommunityId == communityId && e.Kind == MetricKind.ListingOpened && e.AtUtc >= since)
+            .Select(e => e.ListingId)
             .ToListAsync(ct);
 
-        // "Finished" = no longer waiting: filled, expired or closed. Open listings are still in play.
-        var finished = listings.Where(l => l.Status != ListingStatus.Open).ToList();
-        var filled = finished.Where(l => l.Status == ListingStatus.Filled).ToList();
+        var events = await db.MetricEvents.AsNoTracking()
+            .Where(e => openedIds.Contains(e.ListingId))
+            .Select(e => new { e.ListingId, e.Kind, e.Value, e.Reason })
+            .ToListAsync(ct);
+        var byListing = events.ToLookup(e => e.ListingId);
 
-        var minutesToFill = filled
-            .Select(l => l.Seats.Where(s => !s.Released).Select(s => s.ClaimedAtUtc).DefaultIfEmpty(l.CreatedAtUtc).Max())
-            .Zip(filled, (lastSeat, l) => (lastSeat - l.CreatedAtUtc).TotalMinutes)
-            .Order()
-            .ToList();
+        var filled = new List<double>();
+        var finished = 0;
+        foreach (var id in openedIds)
+        {
+            var listing = byListing[id].ToList();
+            // A listing that filled once counts as filled, even if the host closed it afterwards
+            // (they were playing) or a no-show reopened it.
+            var firstFill = listing.Where(e => e.Kind == MetricKind.ListingFilled).Select(e => e.Value ?? 0).DefaultIfEmpty(-1).Min();
+            if (firstFill >= 0)
+            {
+                filled.Add(firstFill / 60.0);
+                finished++;
+            }
+            else if (listing.Any(e => e.Kind is MetricKind.ListingExpired or MetricKind.ListingCancelled))
+            {
+                finished++;
+            }
+        }
 
-        var listingIds = listings.Select(l => l.Id).ToList();
-        var notifications = await db.ListingNotifications.CountAsync(n => listingIds.Contains(n.ListingId), ct);
-        var players = listings.Select(l => l.HostUserId)
-            .Concat(listings.SelectMany(l => l.Seats.Select(s => s.UserId)))
+        filled.Sort();
+        var notifications = events.Where(e => e.Kind == MetricKind.WaveSent).Sum(e => e.Value ?? 0);
+        var seatsTaken = events.Count(e => e.Kind == MetricKind.SeatClaimed);
+        var noShows = events.Count(e => e.Kind == MetricKind.SeatReleased && e.Reason == SeatReleaseReason.NoShow);
+
+        // Who took part is only known from the live tables (the event log stores no user ids).
+        var players = await db.Listings.AsNoTracking()
+            .Where(l => openedIds.Contains(l.Id))
+            .Select(l => l.HostUserId)
+            .Concat(db.ListingSlots.Where(s => openedIds.Contains(s.ListingId)).Select(s => s.UserId))
             .Distinct()
-            .Count();
+            .CountAsync(ct);
         var availableNow = await db.Availabilities.CountAsync(a => a.GuildId == communityId && a.ExpiresAtUtc > now, ct);
 
         return new StatsSummary(
-            listings.Count,
-            finished.Count,
+            openedIds.Count,
+            finished,
             filled.Count,
-            finished.Count == 0 ? null : (double)filled.Count / finished.Count,
-            Median(minutesToFill),
-            minutesToFill.Count == 0 ? null : minutesToFill[0],
+            finished == 0 ? null : (double)filled.Count / finished,
+            Percentile(filled, 0.5),
+            filled.Count == 0 ? null : filled[0],
             notifications,
             players,
-            availableNow);
+            availableNow,
+            Percentile(filled, 0.9),
+            seatsTaken,
+            noShows);
     }
 
-    private static double? Median(IReadOnlyList<double> sorted) => sorted.Count switch
+    /// <summary>Nearest-rank percentile, with the median averaging the two middle values.</summary>
+    private static double? Percentile(IReadOnlyList<double> sorted, double p)
     {
-        0 => null,
-        var n when n % 2 == 1 => sorted[n / 2],
-        var n => (sorted[(n / 2) - 1] + sorted[n / 2]) / 2,
-    };
+        if (sorted.Count == 0)
+        {
+            return null;
+        }
+
+        if (p == 0.5)
+        {
+            var n = sorted.Count;
+            return n % 2 == 1 ? sorted[n / 2] : (sorted[(n / 2) - 1] + sorted[n / 2]) / 2;
+        }
+
+        var rank = (int)Math.Ceiling(p * sorted.Count);
+        return sorted[Math.Clamp(rank - 1, 0, sorted.Count - 1)];
+    }
 }

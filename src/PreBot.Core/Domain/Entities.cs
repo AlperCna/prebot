@@ -73,6 +73,28 @@ public sealed class ListingSlot
     public DateTime ClaimedAtUtc { get; set; }
     public bool Released { get; set; }
     public DateTime? ReleasedAtUtc { get; set; }
+
+    /// <summary>Why the seat was given back (null while held).</summary>
+    public SeatReleaseReason? ReleaseReason { get; set; }
+}
+
+/// <summary>
+/// Append-only, anonymous log of what happened to listings. Statistics are computed from it, so they don't
+/// change when a user deletes their data (no user id is stored here).
+/// </summary>
+public sealed class MetricEvent
+{
+    public long Id { get; set; }
+    public DateTime AtUtc { get; set; }
+    public MetricKind Kind { get; set; }
+    public ulong CommunityId { get; set; }
+    public int ListingId { get; set; }
+    public int? Wave { get; set; }
+
+    /// <summary>Kind-specific number: seats needed, people notified, or seconds since the listing opened.</summary>
+    public int? Value { get; set; }
+
+    public SeatReleaseReason? Reason { get; set; }
 }
 
 /// <summary>A website login. Its <see cref="Id"/> is the user id used everywhere else for website users.</summary>

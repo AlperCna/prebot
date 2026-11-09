@@ -19,8 +19,8 @@
             <div class="stat-label">tipik dolma süresi</div>
         </div>
         <div class="pb-card stat">
-            <div class="stat-value">@(s.FastestMinutesToFill is double f ? Minutes(f) : "–")</div>
-            <div class="stat-label">en hızlı dolan</div>
+            <div class="stat-value">@(s.P90MinutesToFill is double p90 ? Minutes(p90) : "–")</div>
+            <div class="stat-label">10 ilandan 9'u bu sürede doldu</div>
         </div>
         <div class="pb-card stat">
             <div class="stat-value">@s.ListingsOpened</div>
@@ -33,6 +33,10 @@
         <div class="pb-card stat">
             <div class="stat-value">@s.ActivePlayers</div>
             <div class="stat-label">oyuncu katıldı ya da ilan açtı</div>
+        </div>
+        <div class="pb-card stat">
+            <div class="stat-value">@(s.SeatsTaken == 0 ? "–" : $"%{100.0 * s.NoShows / s.SeatsTaken:0}")</div>
+            <div class="stat-label">katılıp gelmeyen (@s.NoShows / @s.SeatsTaken)</div>
         </div>
     </div>
 }
