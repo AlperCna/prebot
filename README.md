@@ -113,7 +113,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deneme-durdur.ps1
 
 Bilgisayarın açık kalmalı. Tünel adresi her açılışta değişir; adres değişince herkes bildirimleri yeniden açmalı. Veriler `%LOCALAPPDATA%\PreBot-deneme` klasöründe, geliştirme verilerinden ayrı tutulur. Davet kodunu bilen herkes istediği isimle girebilir; bu yüzden yalnızca kapalı arkadaş denemesi içindir.
 
-Deneme tutarsa ücretsiz kalıcı sunucu için: [docs/UCRETSIZ-SUNUCU.md](docs/UCRETSIZ-SUNUCU.md) (Oracle Cloud Always Free + DuckDNS, tek komutla kurulum).
+Deneme tutarsa ücretsiz kalıcı sunucu için: öğrenciysen [docs/AZURE-KURULUM.md](docs/AZURE-KURULUM.md) (Azure for Students, kartsız, sabit adres dahil); diğer seçenekler [arastirma/reports/Ücretsiz sunucu alternatifleri.md](arastirma/reports/%C3%9Ccretsiz%20sunucu%20alternatifleri.md) ve [docs/UCRETSIZ-SUNUCU.md](docs/UCRETSIZ-SUNUCU.md).
 
 ## Yayına alma (VPS + Docker + otomatik HTTPS)
 

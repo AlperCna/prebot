@@ -1,10 +1,12 @@
 # Production on a VPS:
 #   1) cp deploy/.env.example .env   and fill it in (DOMAIN, PUSH_SUBJECT, SITE_* at least)
-#   2) docker compose up -d --build
+#   2) docker compose pull web && docker compose up -d --no-build   (ready-made image from GitHub, best for 1 GB servers)
+#      or: docker compose up -d --build                              (compile on the server, needs ~2 GB RAM)
 #   The Discord bot runs inside the website when DISCORD_BOT_TOKEN is set. The "discord" profile below
 #   is only for running the bot on its own, without the website.
 services:
   web:
+    image: ${PREBOT_IMAGE:-ghcr.io/alpercna/prebot-web:latest}
     build:
       context: .
       dockerfile: Dockerfile.web
