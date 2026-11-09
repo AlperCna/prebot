@@ -13,5 +13,7 @@
 set -eu
 
 VOLUME_DIR="$(docker volume inspect -f '{{ .Mountpoint }}' prebot_prebot-data)"
-rclone sync "$VOLUME_DIR/backups" prebot-backup:backups --create-empty-src-dirs
+# "copy", not "sync": a mistake on the server (empty folder) must never delete the off-site copies.
+# Old off-site backups can be cleaned by hand or with: rclone delete prebot-backup:backups --min-age 200d
+rclone copy "$VOLUME_DIR/backups" prebot-backup:backups
 echo "$(date -Is) offsite backup ok"

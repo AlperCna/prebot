@@ -33,7 +33,7 @@
                 </div>
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-light" disabled="@(_busy || !Ready)" @onclick="() => SetAvailableAsync(a.Role, a.Rank, 60)">+1 saat</button>
+                <button class="btn btn-sm btn-outline-light" disabled="@(_busy || !Ready)" @onclick="() => SetAvailableAsync(a.Role, a.Rank, MinutesLeft(a) + 60)">+1 saat</button>
                 <button class="btn btn-sm btn-outline-danger" disabled="@(_busy || !Ready)" @onclick="ClearAsync">Havuzdan çık</button>
             </div>
         </div>
@@ -160,6 +160,9 @@ else
             _rank = a.Rank;
         }
     }
+
+    private static int MinutesLeft(Availability a) =>
+        Math.Max(0, (int)Math.Ceiling((a.ExpiresAtUtc - DateTime.UtcNow).TotalMinutes));
 
     private async Task SetAvailableAsync(Role role, Rank rank, int minutes)
     {

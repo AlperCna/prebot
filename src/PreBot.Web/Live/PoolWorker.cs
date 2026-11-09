@@ -45,6 +45,16 @@ public sealed class PoolWorker(
                 {
                     live.PublishChanged();
                 }
+
+                if (DateTime.UtcNow - _lastPurge > TimeSpan.FromHours(1))
+                {
+                    _lastPurge = DateTime.UtcNow;
+                    var purged = await pre.PurgeOldListingsAsync(stoppingToken);
+                    if (purged > 0)
+                    {
+                        logger.LogInformation("Deleted {Count} closed listing(s) older than 90 days", purged);
+                    }
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -52,6 +62,8 @@ public sealed class PoolWorker(
             }
         }
     }
+
+    private DateTime _lastPurge = DateTime.MinValue;
 
     private async Task Safe(Func<Task> work, string what, int listingId)
     {
