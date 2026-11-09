@@ -1,0 +1,11 @@
+# Secret scanning for CI. Extends the default gitleaks rules.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known, already-revoked material"
+paths = [
+  # Development Data Protection key committed by mistake in 9e7a8b8 and removed afterwards.
+  # It was never used in production (production generates its own key ring under /data/keys).
+  '''src/PreBot\.Web/keys/.*\.xml''',
+]

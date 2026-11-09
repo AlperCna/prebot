@@ -491,3 +491,6 @@ $RECYCLE.BIN/
 vapid-keys.json
 design-time.db*
 
+
+# ASP.NET Data Protection key rings (cookie signing keys) must never be committed
+**/keys/
