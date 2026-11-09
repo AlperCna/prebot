@@ -65,6 +65,7 @@ window.prebot = {
         async state() {
             const ua = navigator.userAgent;
             const ios = /iPhone|iPad|iPod/.test(ua);
+            const windows = /Windows/.test(ua);
             const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
             const supported = window.prebot.push.supported();
             let endpoint = null;
@@ -76,6 +77,7 @@ window.prebot = {
             return {
                 supported,
                 ios,
+                windows,
                 standalone,
                 permission: supported ? Notification.permission : 'unsupported',
                 endpoint,

@@ -138,8 +138,15 @@ public sealed class AccountService(IDbContextFactory<PreBotDbContext> dbFactory,
             .ToDictionaryAsync(a => (ulong)a.Id, a => a.DisplayName, ct);
     }
 
+    /// <summary>A refused DM is tried again after this long (the user may have opened their DMs meanwhile).</summary>
+    public static readonly TimeSpan DmRetryAfter = TimeSpan.FromDays(7);
+
     /// <summary>Discord user ids (snowflakes) of the given website users that signed up through Discord.</summary>
-    public async Task<IReadOnlyDictionary<ulong, ulong>> GetDiscordIdsAsync(IEnumerable<ulong> userIds, CancellationToken ct = default)
+    public async Task<IReadOnlyDictionary<ulong, ulong>> GetDiscordIdsAsync(IEnumerable<ulong> userIds, CancellationToken ct = default) =>
+        await GetDiscordIdsAsync(userIds, dmOpenOnly: false, ct);
+
+    /// <param name="dmOpenOnly">Leave out accounts whose DMs were refused recently (see <see cref="DmRetryAfter"/>).</param>
+    public async Task<IReadOnlyDictionary<ulong, ulong>> GetDiscordIdsAsync(IEnumerable<ulong> userIds, bool dmOpenOnly, CancellationToken ct = default)
     {
         var ids = userIds.Select(u => (long)u).Distinct().ToList();
         if (ids.Count == 0)
@@ -148,13 +155,26 @@ public sealed class AccountService(IDbContextFactory<PreBotDbContext> dbFactory,
         }
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var retryBefore = time.GetUtcNow().UtcDateTime - DmRetryAfter;
         var rows = await db.Accounts.AsNoTracking()
             .Where(a => ids.Contains(a.Id) && a.Provider == "discord")
+            .Where(a => !dmOpenOnly || a.DmClosedAtUtc == null || a.DmClosedAtUtc <= retryBefore)
             .Select(a => new { a.Id, a.ProviderKey })
             .ToListAsync(ct);
         return rows
             .Where(r => ulong.TryParse(r.ProviderKey, out _))
             .ToDictionary(r => (ulong)r.Id, r => ulong.Parse(r.ProviderKey));
+    }
+
+    /// <summary>Remembers that Discord refused (or accepted again) a DM to this Discord user.</summary>
+    public async Task SetDiscordDmClosedAsync(ulong discordUserId, bool closed, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var key = discordUserId.ToString();
+        var at = closed ? time.GetUtcNow().UtcDateTime : (DateTime?)null;
+        await db.Accounts
+            .Where(a => a.Provider == "discord" && a.ProviderKey == key && (closed || a.DmClosedAtUtc != null))
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.DmClosedAtUtc, at), ct);
     }
 
     /// <summary>

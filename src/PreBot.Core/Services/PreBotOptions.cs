@@ -26,4 +26,10 @@ public sealed class PreBotOptions
 
     /// <summary>How often the background worker expires entries and sends due waves.</summary>
     public int SweepIntervalSeconds { get; set; } = 20;
+
+    /// <summary>
+    /// The Discord bot runs in this process, so website players who joined through Discord can be told by DM.
+    /// Set by the host at startup; without the bot a Discord-only account is not reachable at all.
+    /// </summary>
+    public bool DiscordDms { get; set; } = true;
 }

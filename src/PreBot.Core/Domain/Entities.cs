@@ -151,6 +151,12 @@ public sealed class UserAccount
     /// <summary>Invite-code accounts only: the password hash (<see cref="Services.AccountSecret"/>).</summary>
     public string? SecretHash { get; set; }
 
+    /// <summary>
+    /// Discord accounts only: Discord refused a DM to them (DMs closed, or no shared server). They are not
+    /// counted as reachable by DM until a later attempt works (retried after <see cref="Services.AccountService.DmRetryAfter"/>).
+    /// </summary>
+    public DateTime? DmClosedAtUtc { get; set; }
+
     public ulong UserId => (ulong)Id;
 }
 

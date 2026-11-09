@@ -59,6 +59,25 @@
                 <button class="btn btn-sm btn-outline-danger" disabled="@_busy" @onclick="DisableAsync">Kapat</button>
             </div>
         </div>
+        @if (_state.Windows)
+        {
+            @* Windows 11 can switch on "Do not disturb" by itself while a game runs: alerts then go silently to the
+               notification center, for the browser and Discord alike. Wording as in the Turkish Windows settings. *@
+            <details class="small mt-2">
+                <summary class="text-dim">Oyun açıkken bildirim gelmiyor mu?</summary>
+                <div class="text-dim mt-1">
+                    Windows, oyun oynarken ya da tam ekran bir uygulamada "Rahatsız etmeyin"i kendiliğinden açabilir; o sırada
+                    bildirimler ekrana çıkmaz. <strong>Başlat › Ayarlar › Sistem › Bildirimler</strong>'de iki yol var:
+                    <ul class="mb-1 mt-1 ps-3">
+                        <li><strong>Rahatsız etmeyin özelliğini otomatik olarak aç</strong> altında <strong>Oyun oynarken</strong> ve
+                            <strong>Bir uygulamayı tam ekran modunda kullanırken</strong> kutularını kaldır, ya da</li>
+                        <li><strong>Öncelik bildirimlerini ayarlayın › Uygulama ekle</strong> ile tarayıcını (Edge / Chrome) ekle.</li>
+                    </ul>
+                    Tarayıcı tamamen kapalıyken bildirim gelmez; arka planda çalışmaya devam etme ayarını açık tut.
+                    <a href="ms-settings:notifications">Bildirim ayarlarını aç</a>
+                </div>
+            </details>
+        }
     }
 
     @if (_message is not null)
@@ -79,7 +98,7 @@
     private bool _ok;
     private string? _message;
 
-    private sealed record PushState(bool Supported, bool Ios, bool Standalone, string Permission, string? Endpoint);
+    private sealed record PushState(bool Supported, bool Ios, bool Standalone, string Permission, string? Endpoint, bool Windows = false);
 
     /// <summary>Something the user can do right now: turn notifications on, or install the app on iPhone.</summary>
     private static bool IsActionable(PushState s) =>

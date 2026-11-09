@@ -38,7 +38,8 @@ builder.Services.AddSingleton(new DataDirectory(dataDirectory));
 builder.Services.AddSingleton(PreBot.Web.SiteInfo.From(builder.Configuration));
 
 // ---------- Core (same library the Discord bot uses) ----------
-builder.Services.AddSingleton(builder.Configuration.GetSection("PreBot").Get<PreBotOptions>() ?? new PreBotOptions());
+var preBotOptions = builder.Configuration.GetSection("PreBot").Get<PreBotOptions>() ?? new PreBotOptions();
+builder.Services.AddSingleton(preBotOptions);
 var connectionString = builder.Configuration.GetConnectionString("PreBot")
     ?? $"Data Source={Path.Combine(dataDirectory, "prebot-web.db")}";
 builder.Services.AddDbContextFactory<PreBotDbContext>(o =>
@@ -69,6 +70,8 @@ builder.Services.AddSingleton<PoolActions>();
 
 // Optional: host the Discord bot in this same process (one database, one writer). It keeps all its slash
 // commands, and announces website listings in Discord:FeedChannelIds with a link back to the site.
+// Without the bot here, players who only use Discord cannot be told anything: matching must not count them.
+preBotOptions.DiscordDms = DiscordSetup.IsConfigured(builder.Configuration);
 if (DiscordSetup.IsConfigured(builder.Configuration))
 {
     builder.Services.AddPreBotDiscord(builder.Configuration);

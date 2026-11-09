@@ -33,6 +33,58 @@ public sealed class WebCoreTests : IDisposable
         public Task SendAsync(WaveAlert alert, CancellationToken ct) => throw new InvalidOperationException("push service down");
     }
 
+    // ---------- Discord reachability ----------
+
+    /// <summary>Five website players nobody can reach while the site is closed, then one who uses Discord.</summary>
+    private async Task<ulong> PoolWithOneDiscordPlayerAsync()
+    {
+        for (var i = 0; i < Core.Matching.Matcher.WaveSize(0); i++)
+        {
+            var quiet = await _accounts.GetOrCreateAsync("dev", $"p{i}", $"P{i}");
+            await _t.Service.SetAvailableAsync(Web, quiet.UserId, Role.Support, Rank.Gold, TimeSpan.FromHours(1));
+        }
+
+        var discord = await _accounts.GetOrCreateAsync("discord", "555", "Discordcu");
+        await _t.Service.SetAvailableAsync(Web, discord.UserId, Role.Support, Rank.Gold, TimeSpan.FromHours(1));
+        return discord.UserId;
+    }
+
+    private async Task<IReadOnlyList<ulong>> FirstWaveAsync() =>
+        (await _t.Service.RunNextWaveAsync(
+            (await _t.Service.CreateListingAsync(Web, Web, 999, Role.Support, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id))!.UserIds;
+
+    [Fact]
+    public async Task A_Discord_player_who_accepts_DMs_is_reachable_and_asked_first()
+    {
+        var discord = await PoolWithOneDiscordPlayerAsync();
+        Assert.Contains(discord, await FirstWaveAsync());
+    }
+
+    [Fact]
+    public async Task A_Discord_player_whose_DMs_are_closed_is_not_counted_as_reachable_for_a_week()
+    {
+        var discord = await PoolWithOneDiscordPlayerAsync();
+        await _accounts.SetDiscordDmClosedAsync(555, closed: true);
+
+        Assert.DoesNotContain(discord, await FirstWaveAsync());
+        Assert.Empty(await _accounts.GetDiscordIdsAsync([discord], dmOpenOnly: true));
+        Assert.Single(await _accounts.GetDiscordIdsAsync([discord])); // still a Discord account
+
+        _t.Time.Advance(AccountService.DmRetryAfter);
+        Assert.Single(await _accounts.GetDiscordIdsAsync([discord], dmOpenOnly: true)); // tried again after a week
+
+        await _accounts.SetDiscordDmClosedAsync(555, closed: false);
+        Assert.Null((await _accounts.FindAsync(discord))!.DmClosedAtUtc);
+    }
+
+    [Fact]
+    public async Task Without_the_Discord_bot_a_Discord_only_player_is_not_reachable()
+    {
+        _t.Settings.DiscordDms = false;
+        var discord = await PoolWithOneDiscordPlayerAsync();
+        Assert.DoesNotContain(discord, await FirstWaveAsync());
+    }
+
     // ---------- Accounts ----------
 
     [Fact]

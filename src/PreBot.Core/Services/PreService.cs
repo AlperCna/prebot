@@ -968,13 +968,22 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         return await db.Players.Where(p => p.UserId == userId && p.MutedUntilUtc > now).Select(p => p.MutedUntilUtc).SingleOrDefaultAsync(ct);
     }
 
-    /// <summary>Website players we can reach while the site is closed: a push device or a Discord account (DM).</summary>
-    private static async Task<IReadOnlySet<ulong>> ReachableAsync(PreBotDbContext db, IEnumerable<ulong> userIds, CancellationToken ct)
+    /// <summary>
+    /// Website players we can reach while the site is closed: a push device, or a Discord account that accepts
+    /// DMs (only when the bot runs here; DMs refused recently don't count).
+    /// </summary>
+    private async Task<IReadOnlySet<ulong>> ReachableAsync(PreBotDbContext db, IEnumerable<ulong> userIds, CancellationToken ct)
     {
         var ids = userIds.Distinct().ToList();
         var accountIds = ids.Select(u => (long)u).ToList();
         var withPush = await db.PushSubscriptions.Where(p => ids.Contains(p.UserId)).Select(p => p.UserId).ToListAsync(ct);
-        var discord = await db.Accounts.Where(a => accountIds.Contains(a.Id) && a.Provider == "discord").Select(a => a.Id).ToListAsync(ct);
+        var retryBefore = Now - AccountService.DmRetryAfter;
+        var discord = options.DiscordDms
+            ? await db.Accounts
+                .Where(a => accountIds.Contains(a.Id) && a.Provider == "discord" && (a.DmClosedAtUtc == null || a.DmClosedAtUtc <= retryBefore))
+                .Select(a => a.Id)
+                .ToListAsync(ct)
+            : [];
         return withPush.Concat(discord.Select(d => (ulong)d)).ToHashSet();
     }
 

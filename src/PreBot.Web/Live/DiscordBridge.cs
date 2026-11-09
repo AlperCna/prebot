@@ -34,7 +34,8 @@ public sealed class NoDirectMessenger : IDirectMessenger
 
 /// <summary>
 /// Discord DMs for players who joined through Discord. Only used for people without a push device, so
-/// nobody gets the same alert twice. Users with DMs closed are remembered and skipped.
+/// nobody gets the same alert twice. Users with DMs closed are remembered (in the database, so matching
+/// does not count them as reachable either) and tried again after a week.
 /// </summary>
 public sealed class DiscordDirectMessenger(
     DiscordSocketClient client,
@@ -42,24 +43,19 @@ public sealed class DiscordDirectMessenger(
     SubscriptionService subscriptions,
     ILogger<DiscordDirectMessenger> logger) : IDirectMessenger
 {
-    private readonly HashSet<ulong> _dmClosed = [];
-
     public async Task<IReadOnlyDictionary<ulong, ulong>> ReachableWithoutPushAsync(IEnumerable<ulong> userIds, CancellationToken ct = default)
     {
         var ids = userIds.ToList();
-        var discord = await accounts.GetDiscordIdsAsync(ids, ct);
+        var discord = await accounts.GetDiscordIdsAsync(ids, dmOpenOnly: true, ct);
         if (discord.Count == 0)
         {
             return discord;
         }
 
         var withPush = (await subscriptions.GetPushSubscriptionsAsync(discord.Keys, ct)).Select(s => s.UserId).ToHashSet();
-        lock (_dmClosed)
-        {
-            return discord
-                .Where(kv => !withPush.Contains(kv.Key) && !_dmClosed.Contains(kv.Value))
-                .ToDictionary(kv => kv.Key, kv => kv.Value);
-        }
+        return discord
+            .Where(kv => !withPush.Contains(kv.Key))
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
     public Task SendListingAsync(ulong discordUserId, WaveAlert alert, string listingUrl, CancellationToken ct = default)
@@ -103,15 +99,12 @@ public sealed class DiscordDirectMessenger(
             }
 
             await user.SendMessageAsync(embed: embed, components: components);
+            await accounts.SetDiscordDmClosedAsync(discordUserId, closed: false); // works again (after a retry)
         }
         catch (HttpException ex) when (ex.DiscordCode == DiscordErrorCode.CannotSendMessageToUser)
         {
-            // DMs closed (privacy setting) or no shared server: don't try again until restart.
-            lock (_dmClosed)
-            {
-                _dmClosed.Add(discordUserId);
-            }
-
+            // DMs closed (privacy setting) or no shared server: skip them for a week.
+            await accounts.SetDiscordDmClosedAsync(discordUserId, closed: true);
             logger.LogInformation("Discord user {DiscordUserId} does not accept DMs", discordUserId);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

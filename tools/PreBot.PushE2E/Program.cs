@@ -132,6 +132,12 @@ try
         {
             throw new InvalidOperationException("Sunucu push servisine iletemedi: " + text[..Math.Min(text.Length, 300)]);
         }
+
+        // On Windows the page explains how to keep notifications on while a game runs (game-mode "Do not disturb").
+        if (OperatingSystem.IsWindows() && !text.Contains("Oyun açıkken bildirim gelmiyor mu?"))
+        {
+            throw new InvalidOperationException("Windows'ta 'Rahatsız etmeyin' ipucu görünmüyor.");
+        }
     });
 
     await Step("Test bildirimi gerçekten sistem bildirimi olarak görünür", async () =>
