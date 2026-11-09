@@ -19,7 +19,7 @@ Kararın tek koşulu, aynı akşam saatinde yeterince müsait oyuncu olması (li
 | Sorun gerçek mi? | **Evet.** 4 kişilik parti Ranked Flex'e giremiyor. TR oyuncuları bunun için her gün ilan veriyor. | Yüksek (birincil kaynak + gözlem) |
 | Flex TR'de yaşıyor mu? | **Evet.** TR'de Flex dereceli hesap sayısı Solo/Duo'nun yaklaşık %70'i (EUW'de %45). | Orta–yüksek (op.gg sayıları) |
 | Başka biri zaten çözüyor mu? | **Kısmen.** LoLFinder.net'te Türkçe bir Flex panosu var, ama anlık bildirim ve "yeri kap" yok. Riot'un PC'de yabancı bulma özelliği yok. | Yüksek |
-| Discord yerine web doğru mu? | **Evet.** Discord Türkiye'de hâlâ engelli (1–9 Kasım 2026 ölçümleri). | Yüksek |
+| Web mi Discord mu? | **İkisi birden, tek havuzda.** Discord resmi olarak engelli, ama TR oyuncuları onu VPN/DNS ile yaygın şekilde kullanmaya devam ediyor. Web, Discord'u olmayanlar ve bildirim için ana kapı; Discord ise oyuncuların zaten toplandığı ikinci kapı. | Engel: yüksek. Kullanım yaygınlığı: kullanıcı gözlemi |
 | PreBot'un akışı sorunu çözüyor mu? | **Evet, teknik olarak.** İlan açılıyor, uygun kişilere saniyeler içinde push gidiyor, ilk dokunan yeri alıyor, ilan sahibine Riot ID ile haber gidiyor. Gerçek tarayıcıda uçtan uca denendi. | Yüksek |
 | Gerçek hayatta ilanlar dolacak mı? | **Bilinmiyor.** Bu, akşam saatinde havuzda kaç kişi olacağına bağlı. Henüz gerçek kullanıcı yok. | Ölçülmedi |
 
@@ -43,7 +43,7 @@ Yani "4 kişiyiz" durumu bir tercih değil, bir engel. Dört kişi ya 5.'yi bula
 |---|---|
 | Arkadaşın arkadaşına sormak | Herkes müsait değil. Kimin müsait olduğu bilinmiyor. |
 | LoLFinder.net | Statik pano. İlanlar 6 ay duruyor, "acil" ilanlar günlerce asılı kalıyor. Müsait oyuncuya bildirim yok, yeri kapma yok. |
-| Discord LFG kanalları | Türkiye'de engelli. VPN/DNS yöntemleri giderek bozuluyor; Technopat'ta GoodbyeDPI'ın artık çalışmadığı yazılıyor. |
+| Discord LFG kanalları | En yaygın yöntemlerden biri: engele rağmen insanlar VPN/DNS ile kullanıyor. Ama kanala yazılan "+1 lazım" mesajı müsait oyuncuya bildirim olarak gitmiyor, kaybolup gidiyor. Bazı kişilerde engeli aşma yöntemleri bozuluyor. |
 | OP.GG Duo | Türkiye'de neredeyse boş, son ilan 2 gün önce. |
 | Riot'un parti bağlantısı (2026) | Eşleştirme değil, yalnızca bağlantı paylaşma. Resmi olarak ABD, Kanada ve Brezilya'da açıldı. Discord bağlantısı gerektiriyor. |
 
@@ -74,6 +74,28 @@ Bu akış gerçek Edge tarayıcısında ve gerçek Windows push servisinde 8 ad�
 - **Bilgisayar:** Bildirimin gelmesi için tarayıcının açık olması gerekiyor. Kurulu PWA'nın tarayıcı kapalıyken bildirim alıp alamadığı belgelerde kesin değil.
 - **Gelmeyen oyuncu:** Bugün yalnızca ilan sahibinin "Gelmedi, yeniden ara" düğmesi var. Gelme oranı ölçülmüyor (yol haritasında F1.7).
 
+## 3b. Discord hafife alınmamalı: tek havuz
+
+Discord Türkiye'de resmi olarak engelli, ama proje sahibinin kendi gözlemine göre çevresindeki oyuncuların çoğu onu hâlâ bir şekilde kullanıyor. Araştırma da bunu destekliyor: küçük Türk LoL sunucuları Disboard'da dakikalar içinde öne çıkarılıyor. Bu yüzden Discord'u yalnızca "duyuru kanalı" saymak hata olur. **Discord, oyuncuların zaten toplandığı ikinci kapı.**
+
+**Bugünkü sorun: iki ayrı havuz.** Kod şu an web ve Discord'u ayrı topluluklar olarak tutuyor:
+
+- Web kullanıcıları web havuzunda. Discord'da `/musaitim` diyenler o sunucunun ayrı havuzunda.
+- Web'de açılan ilan, Discord'da `/musaitim` demiş birine bildirim olarak gitmiyor; yalnızca kanalda duyuru olarak görünüyor.
+
+Kodda: web hesabı `UserAccount` kimliği ile, Discord kullanıcısı Discord kimliği ile tutuluyor. `Communities.Web` ile sunucu kimlikleri de ayrı.
+
+En büyük risk likidite olduğu için **havuzu ikiye bölmek en büyük riski büyütüyor.** Akşam web'de 3, Discord'da 4 müsait kişi varsa iki tarafta da ilan dolmayabilir. Tek havuzda ise 7 kişi olur.
+
+**Karar: tek havuz.** Hangi kapıdan gelirse gelsin herkes aynı havuzda olacak (yol haritasında F1.12):
+
+1. **Tek kimlik.** Bot, Discord kullanıcısını `discord` sağlayıcılı bir `UserAccount` ile eşleştirir; kayıt yoksa oluşturur. Siteye Discord ile giren kişi aynı hesaba düşer. Riot ID ve müsaitlik iki tarafta da aynı olur.
+2. **Tek havuz.** Discord'daki `/musaitim` ve `/pre-lazim` web topluluğuna (`Communities.Web`) yazar. Web'de açılan ilan Discord'daki müsait oyunculara, Discord'da açılan ilan web'deki müsait oyunculara bildirim gönderir.
+3. **Discord'dan katılma.** Bildirim, Discord'da müsait olan kişiye DM ve **Katıl** butonu olarak gider. Kanal duyurusunda da **Katıl** butonu olur. Butona basan kişi siteye gitmeden yeri alır. Riot ID'si yoksa bir modal ile sorulur.
+4. **İlan sahibine bildirim iki kanaldan.** İlan sahibi Discord'luysa katılım haberi ona DM ile de gider.
+
+**Emek:** L (yaklaşık 15–25 saat). **Başarı ölçütü:** İstatistikte ilanların bir kısmı karşı kapıdan gelen oyuncularla doluyor (web ilanı Discord'dan katılan biriyle ya da tersi).
+
 ## 4. Riskler (en güçlüden en zayıfa)
 
 1. **Likidite.** Görünür talep günde 3–5 ilan. Akşam 20:00–00:00 arasında havuzda 3–5 müsait kişi yoksa bildirim gidecek kimse olmaz. Bu, en büyük ve tek ölümcül risk.
@@ -99,7 +121,8 @@ Yayına aldıktan sonra **ilk 2 hafta, akşam 20:00–00:00 arasında** ölç. �
 
 - **Çekirdek:** Kendi arkadaş grubun ve onların arkadaşları, 10–20 kişi. "Akşam müsaitsen bas" diye anlaşın.
 - **Tam hedef kitle:** LoLFinder'da Türkiye Flex ve Duo panosunda ilan verenler. Duo panosunda günde yaklaşık 12 ilan var. Bunlar yabancıyla oynamaya zaten razı olan doldurucular. Onların panosunu spam'leme. Kendi ilanını verirken ya da bir ilana cevap verirken PreBot bağlantısını paylaş.
-- **Sonra:** Üniversite e-spor kulüpleri, küçük Türk LoL Discord sunucuları (VPN ile hâlâ aktifler) ve küçük yayıncılar.
+- **Discord sunucuları (öncelikli):** Türk LoL Discord sunucuları hâlâ aktif. Botu bu sunuculara eklemek, tek havuzla birlikte en hızlı büyüme yolu. Sunucu yöneticilerinden izin alarak bir #flex-pre kanalı aç.
+- **Sonra:** Üniversite e-spor kulüpleri ve küçük yayıncılar.
 
 ## 7. Önceki planda düzeltilenler
 
@@ -123,7 +146,7 @@ Teyit turu yol haritasında şu düzeltmeleri gerektirdi. Hepsi [yol haritasına
 
 ## Sıradaki adımlar
 
-1. **Kod (hemen, toplam 2–4 saat):**
+1. **Kod (hemen, toplam 2–4 saat), ardından tek havuz (F1.12):**
    - Boş dalga bekletmesin.
    - Varsayılan rank aralığı geniş olsun.
 2. **Kod (yayından önce):** Yol haritasının Faz 0'ı.
