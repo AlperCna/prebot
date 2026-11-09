@@ -43,6 +43,28 @@ public sealed class JoinTokens(IDataProtectionProvider provider, TimeProvider ti
     public string Create(int listingId, ulong userId) =>
         _protector.Protect($"{listingId}:{userId}", time.GetUtcNow() + Lifetime);
 
+    /// <summary>The listing and user a join token belongs to, or null if it is forged or expired.</summary>
+    public (int ListingId, ulong UserId)? Read(string? token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return null;
+        }
+
+        try
+        {
+            var parts = _protector.Unprotect(token, out var expiration).Split(':');
+            return expiration > time.GetUtcNow() && parts.Length == 2
+                && int.TryParse(parts[0], out var listingId) && ulong.TryParse(parts[1], out var userId)
+                ? (listingId, userId)
+                : null;
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
+    }
+
     public bool IsValid(string? token, int listingId, ulong userId)
     {
         if (string.IsNullOrEmpty(token))

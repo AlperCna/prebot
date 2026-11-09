@@ -8,7 +8,11 @@ using PreBot.Core.Services;
 namespace PreBot.Web.Push;
 
 /// <summary>What the service worker receives and turns into a system notification.</summary>
-public sealed record PushPayload(string Title, string Body, string Url, string? JoinUrl, string Tag, string? MuteUrl = null);
+/// <param name="OpenedUrl">The service worker posts here when the notification is opened (trial measurement).</param>
+/// <param name="InGameUrl">"Maçtayım, sonra" button: the service worker posts here.</param>
+public sealed record PushPayload(
+    string Title, string Body, string Url, string? JoinUrl, string Tag, string? MuteUrl = null,
+    string? OpenedUrl = null, string? InGameUrl = null);
 
 /// <summary>Sends Web Push messages to every registered device of the given users.</summary>
 public sealed class PushSender(
@@ -103,5 +107,7 @@ public sealed class PushSender(
         $"/ilan/{listingId}",
         joinToken is null ? null : $"/ilan/{listingId}?katil={Uri.EscapeDataString(joinToken)}",
         $"listing-{listingId}",
-        muteToken is null ? null : $"/api/sustur?t={Uri.EscapeDataString(muteToken)}");
+        muteToken is null ? null : $"/api/sustur?t={Uri.EscapeDataString(muteToken)}",
+        joinToken is null ? null : $"/api/bildirim/acildi?t={Uri.EscapeDataString(joinToken)}",
+        joinToken is null ? null : $"/api/bildirim/oyundayim?t={Uri.EscapeDataString(joinToken)}");
 }

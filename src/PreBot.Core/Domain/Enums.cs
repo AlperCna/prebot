@@ -39,6 +39,37 @@ public enum MetricKind
 
     /// <summary>The host found someone through the custom game lobby (outside PreBot's seat claiming).</summary>
     FilledViaLobby,
+
+    /// <summary>Notifications handed to players in one go, per source (Value = how many, Source = where from).</summary>
+    NotificationsSent,
+
+    /// <summary>A player opened a listing notification or tapped one of its buttons (first time only).</summary>
+    NotificationOpened,
+
+    /// <summary>A player answered "Maçtayım, bitince haber ver".</summary>
+    InGameReported,
+
+    /// <summary>A host opened a joiner's op.gg profile from the listing page.</summary>
+    ProfileOpened,
+
+    /// <summary>Push services accepted this many device deliveries for one wave (Value).</summary>
+    PushAccepted,
+}
+
+/// <summary>Why a player heard about a listing. Measured, so the trial shows which way of finding players works.</summary>
+public enum NotificationSource
+{
+    /// <summary>They said "Şu an müsaitim" and were in the pool.</summary>
+    Pool,
+
+    /// <summary>Their "Bana haber ver" subscription.</summary>
+    Alert,
+
+    /// <summary>They joined the pool while the listing was already open.</summary>
+    Newcomer,
+
+    /// <summary>They said "Maçtayım" earlier and their match is over now.</summary>
+    AfterMatch,
 }
 
 public enum ReportReason

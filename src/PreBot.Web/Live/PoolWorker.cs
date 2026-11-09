@@ -41,6 +41,17 @@ public sealed class PoolWorker(
                     await waves.RunAsync(listingId, stoppingToken);
                 }
 
+                // "Maçtayım": their match should be over, offer the listing again (or another one that fits).
+                foreach (var (userId, putOff) in await pre.TakeFinishedMatchesAsync(stoppingToken))
+                {
+                    if (await pre.MatchAfterMatchAsync(Communities.Web, userId, putOff, stoppingToken) is { } wave)
+                    {
+                        await waves.DispatchAsync(wave, stoppingToken);
+                    }
+
+                    changed = true;
+                }
+
                 if (changed)
                 {
                     live.PublishChanged();

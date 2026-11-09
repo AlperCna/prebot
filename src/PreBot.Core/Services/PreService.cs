@@ -338,7 +338,12 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         await db.Availabilities.Where(a => a.GuildId == info.GuildId && a.UserId == userId).ExecuteDeleteAsync(ct);
 
         var secondsOpen = (int)(now - info.CreatedAtUtc).TotalSeconds;
-        Record(db, MetricKind.SeatClaimed, info.GuildId, listingId, now, value: secondsOpen);
+        var heard = await db.ListingNotifications.AsNoTracking()
+            .Where(n => n.ListingId == listingId && n.UserId == userId)
+            .Select(n => new { n.Source, n.SentAtUtc })
+            .FirstOrDefaultAsync(ct);
+        Record(db, MetricKind.SeatClaimed, info.GuildId, listingId, now, value: secondsOpen,
+            source: heard?.Source, sinceNotified: heard is null ? null : (int)(now - heard.SentAtUtc).TotalSeconds);
         if (filled > 0)
         {
             Record(db, MetricKind.ListingFilled, info.GuildId, listingId, now, value: secondsOpen);
@@ -587,6 +592,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
         var criteria = Criteria(listing);
         var notify = new List<ulong>();
+        var sources = new Dictionary<ulong, NotificationSource>();
         var reachable = listing.GuildId == Communities.Web ? await ReachableAsync(db, pool.Select(a => a.UserId), ct) : null;
 
         var picked = Matcher.FindCandidates(pool, criteria, wave, now, PingCooldown, excluded, reachable);
@@ -594,6 +600,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
         {
             entry.LastPingedAtUtc = now;
             notify.Add(entry.UserId);
+            sources[entry.UserId] = NotificationSource.Pool;
         }
 
         // "Bana haber ver" subscribers come after actively available players:
@@ -615,6 +622,7 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
                 s.CountToday = s.CountDate == today ? s.CountToday + 1 : 1;
                 s.CountDate = today;
                 notify.Add(s.UserId);
+                sources[s.UserId] = NotificationSource.Alert;
             }
         }
 
@@ -626,10 +634,15 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
                 UserId = userId,
                 Wave = wave,
                 SentAtUtc = now,
+                Source = sources[userId],
             });
         }
 
         Record(db, MetricKind.WaveSent, listing, now, wave: wave, value: notify.Count);
+        foreach (var bySource in sources.Values.GroupBy(s => s))
+        {
+            Record(db, MetricKind.NotificationsSent, listing.GuildId, listingId, now, wave: wave, value: bySource.Count(), source: bySource.Key);
+        }
 
         // Nobody fits this wave, but the wider next wave already has someone: don't make the host wait
         // minutes for nothing. If the wider wave is empty too, keep the normal delay so players who
@@ -685,16 +698,213 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
         var wave = Math.Max(0, best.WavesSent - 1);
         me.LastPingedAtUtc = now;
-        db.ListingNotifications.Add(new ListingNotification { ListingId = best.Id, UserId = userId, Wave = wave, SentAtUtc = now });
+        db.ListingNotifications.Add(new ListingNotification
+        {
+            ListingId = best.Id, UserId = userId, Wave = wave, SentAtUtc = now, Source = NotificationSource.Newcomer,
+        });
         Record(db, MetricKind.WaveSent, best, now, wave: wave, value: 1);
+        Record(db, MetricKind.NotificationsSent, best.GuildId, best.Id, now, wave: wave, value: 1, source: NotificationSource.Newcomer);
         await db.SaveChangesAsync(ct);
         return new WaveResult(best.Id, wave, [userId]);
     }
 
-    /// <summary>Players who must not be notified right now: muted ("sustur") or banned.</summary>
+    // ---------- "Maçtayım, bitince haber ver" ----------
+
+    /// <summary>
+    /// How long a player who says "I'm in a match" is left alone. A game lasts about 30 minutes and the
+    /// notification arrives at a random point in it, so 25 minutes covers most of the rest plus the end screen.
+    /// </summary>
+    public static readonly TimeSpan InGameFor = TimeSpan.FromMinutes(25);
+
+    /// <summary>
+    /// The player is in a match: no listing notifications until it is over, then the listing they were looking
+    /// at (if still open) or another one that fits. Returns when they will hear from PreBot again.
+    /// </summary>
+    public async Task<DateTime> ReportInGameAsync(ulong userId, int? listingId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        var player = await EnsurePlayerAsync(db, userId, now, ct);
+        player.InGameUntilUtc = now + InGameFor;
+        player.InGameListingId = listingId;
+
+        if (listingId is { } id
+            && await db.Listings.Where(l => l.Id == id).Select(l => (ulong?)l.GuildId).SingleOrDefaultAsync(ct) is { } community)
+        {
+            var heard = await db.ListingNotifications.FirstOrDefaultAsync(n => n.ListingId == id && n.UserId == userId, ct);
+            Record(db, MetricKind.InGameReported, community, id, now,
+                source: heard?.Source, sinceNotified: heard is null ? null : (int)(now - heard.SentAtUtc).TotalSeconds);
+            if (heard is not null)
+            {
+                // Forget that they were told, so this listing can be offered to them again after the match.
+                db.ListingNotifications.Remove(heard);
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+        return player.InGameUntilUtc.Value;
+    }
+
+    public async Task<DateTime?> GetInGameUntilAsync(ulong userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        return await db.Players.Where(p => p.UserId == userId && p.InGameUntilUtc > now).Select(p => p.InGameUntilUtc).SingleOrDefaultAsync(ct);
+    }
+
+    /// <summary>"Maç bitti, hazırım": back before the time ran out. Returns the listing they had put off, if any.</summary>
+    public async Task<int?> EndInGameAsync(ulong userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var listingId = await db.Players.Where(p => p.UserId == userId && p.InGameUntilUtc != null)
+            .Select(p => p.InGameListingId).FirstOrDefaultAsync(ct);
+        await db.Players.Where(p => p.UserId == userId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.InGameUntilUtc, (DateTime?)null)
+                .SetProperty(p => p.InGameListingId, (int?)null), ct);
+        return listingId;
+    }
+
+    /// <summary>Players whose match should be over now. Each one is returned once (the mark is cleared).</summary>
+    public async Task<IReadOnlyList<(ulong UserId, int? ListingId)>> TakeFinishedMatchesAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        var due = await db.Players.AsNoTracking()
+            .Where(p => p.InGameUntilUtc != null && p.InGameUntilUtc <= now)
+            .Select(p => new { p.UserId, p.InGameUntilUtc, p.InGameListingId })
+            .ToListAsync(ct);
+
+        var taken = new List<(ulong, int?)>();
+        foreach (var p in due)
+        {
+            var cleared = await db.Players
+                .Where(x => x.UserId == p.UserId && x.InGameUntilUtc == p.InGameUntilUtc)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.InGameUntilUtc, (DateTime?)null)
+                    .SetProperty(x => x.InGameListingId, (int?)null), ct);
+            if (cleared == 1)
+            {
+                taken.Add((p.UserId, p.InGameListingId));
+            }
+        }
+
+        return taken;
+    }
+
+    /// <summary>
+    /// The player's match is over: offer the listing they put off if it is still open and fits them, otherwise
+    /// the most urgent open listing that fits their pool entry or "Bana haber ver" setting.
+    /// </summary>
+    public async Task<WaveResult?> MatchAfterMatchAsync(ulong communityId, ulong userId, int? preferredListingId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        if ((await SilencedAsync(db, now, ct)).Contains(userId))
+        {
+            return null;
+        }
+
+        var entry = await db.Availabilities.SingleOrDefaultAsync(a => a.GuildId == communityId && a.UserId == userId && a.ExpiresAtUtc > now, ct);
+        var me = entry;
+        if (me is null)
+        {
+            var alert = await db.AlertSubscriptions.AsNoTracking()
+                .Where(a => a.CommunityId == communityId && a.UserId == userId && a.Enabled)
+                .OrderByDescending(a => a.CreatedAtUtc)
+                .FirstOrDefaultAsync(ct);
+            if (alert is null)
+            {
+                return null;
+            }
+
+            me = new Availability { GuildId = communityId, UserId = userId, Role = alert.Role, Rank = alert.Rank, ExpiresAtUtc = now.AddHours(1) };
+        }
+
+        var open = await db.Listings.AsNoTracking()
+            .Where(l => l.GuildId == communityId && l.Status == ListingStatus.Open && l.ExpiresAtUtc > now
+                && l.HostUserId != userId
+                && !db.ListingSlots.Any(s => s.ListingId == l.Id && s.UserId == userId)
+                && !db.ListingNotifications.Any(n => n.ListingId == l.Id && n.UserId == userId))
+            .ToListAsync(ct);
+        var fits = open
+            .Where(l => Matcher.FindCandidates([me], Criteria(l), Math.Clamp(l.WavesSent - 1, 0, Matcher.MaxWaves - 1), now, TimeSpan.Zero, new HashSet<ulong>()).Count > 0)
+            .ToList();
+        var best = fits.FirstOrDefault(l => l.Id == preferredListingId)
+            ?? fits.OrderBy(l => l.SlotsNeeded - l.SlotsFilled).ThenBy(l => l.CreatedAtUtc).FirstOrDefault();
+        if (best is null)
+        {
+            return null;
+        }
+
+        var wave = Math.Max(0, best.WavesSent - 1);
+        if (entry is not null)
+        {
+            entry.LastPingedAtUtc = now;
+        }
+
+        db.ListingNotifications.Add(new ListingNotification
+        {
+            ListingId = best.Id, UserId = userId, Wave = wave, SentAtUtc = now, Source = NotificationSource.AfterMatch,
+        });
+        Record(db, MetricKind.NotificationsSent, best.GuildId, best.Id, now, wave: wave, value: 1, source: NotificationSource.AfterMatch);
+        await db.SaveChangesAsync(ct);
+        return new WaveResult(best.Id, wave, [userId]);
+    }
+
+    /// <summary>For the host: how many notified players are in a match and asked to hear about this listing afterwards.</summary>
+    public async Task<(int Count, DateTime? EarliestBackUtc)> GetWaitingAfterMatchAsync(int listingId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        var times = await db.Players
+            .Where(p => p.InGameListingId == listingId && p.InGameUntilUtc > now)
+            .Select(p => p.InGameUntilUtc!.Value)
+            .ToListAsync(ct);
+        return (times.Count, times.Count == 0 ? null : times.Min());
+    }
+
+    // ---------- Measurements for the trial ----------
+
+    /// <summary>A player opened a listing notification (counted once per notification).</summary>
+    public async Task RecordNotificationOpenedAsync(int listingId, ulong userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var now = Now;
+        var heard = await db.ListingNotifications.FirstOrDefaultAsync(n => n.ListingId == listingId && n.UserId == userId && n.OpenedAtUtc == null, ct);
+        if (heard is null)
+        {
+            return;
+        }
+
+        heard.OpenedAtUtc = now;
+        var community = await db.Listings.Where(l => l.Id == listingId).Select(l => l.GuildId).SingleAsync(ct);
+        Record(db, MetricKind.NotificationOpened, community, listingId, now,
+            source: heard.Source, sinceNotified: (int)(now - heard.SentAtUtc).TotalSeconds);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Records an anonymous event about a listing (e.g. a profile opened, push deliveries accepted).</summary>
+    public async Task RecordAsync(MetricKind kind, int listingId, int? wave = null, int? value = null, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var community = await db.Listings.Where(l => l.Id == listingId).Select(l => (ulong?)l.GuildId).SingleOrDefaultAsync(ct);
+        if (community is null)
+        {
+            return;
+        }
+
+        Record(db, kind, community.Value, listingId, Now, wave, value);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Players who must not be notified right now: muted ("sustur"), in a match ("Maçtayım") or banned.</summary>
     private static async Task<HashSet<ulong>> SilencedAsync(PreBotDbContext db, DateTime now, CancellationToken ct)
     {
-        var muted = await db.Players.Where(p => p.MutedUntilUtc != null && p.MutedUntilUtc > now).Select(p => p.UserId).ToListAsync(ct);
+        var muted = await db.Players
+            .Where(p => (p.MutedUntilUtc != null && p.MutedUntilUtc > now) || (p.InGameUntilUtc != null && p.InGameUntilUtc > now))
+            .Select(p => p.UserId)
+            .ToListAsync(ct);
         var banned = await db.Accounts.Where(a => a.BannedAtUtc != null).Select(a => a.Id).ToListAsync(ct);
         return muted.Concat(banned.Select(b => (ulong)b)).ToHashSet();
     }
@@ -968,7 +1178,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
 
     private static void Record(
         PreBotDbContext db, MetricKind kind, ulong communityId, int listingId, DateTime now,
-        int? wave = null, int? value = null, SeatReleaseReason? reason = null) =>
+        int? wave = null, int? value = null, SeatReleaseReason? reason = null,
+        NotificationSource? source = null, int? sinceNotified = null) =>
         db.MetricEvents.Add(new MetricEvent
         {
             AtUtc = now,
@@ -978,6 +1189,8 @@ public sealed class PreService(IDbContextFactory<PreBotDbContext> dbFactory, Tim
             Wave = wave,
             Value = value,
             Reason = reason,
+            Source = source,
+            SinceNotifiedSeconds = sinceNotified,
         });
 
     private static async Task<Player> EnsurePlayerAsync(PreBotDbContext db, ulong userId, DateTime now, CancellationToken ct)

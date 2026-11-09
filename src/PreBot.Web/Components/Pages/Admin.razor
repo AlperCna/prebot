@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inherits UserComponentBase
 @inject ModerationService Moderation
+@inject StatsService Stats
 @inject IConfiguration Config
 
 <PageTitle>Yönetim · PreBot</PageTitle>
@@ -23,7 +24,33 @@
     return;
 }
 
-<div class="section-title mt-0">Şikâyetler (@_reports.Count)</div>
+<div class="section-title mt-0">Deneme ölçümleri (son 14 gün)</div>
+@if (_trial is { } t)
+{
+    <div class="pb-card small">
+        <div class="table-responsive">
+            <table class="table table-sm mb-2 align-middle">
+                <thead>
+                    <tr><th>Haber nereden</th><th>Giden</th><th>Açılan</th><th>Maçtayım</th><th>Katılım</th><th>Açılma (medyan)</th><th>Katılım (medyan)</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in t.BySource)
+                    {
+                        <tr>
+                            <td>@SourceText(f.Source)</td><td>@f.Sent</td><td>@f.Opened</td><td>@f.InGame</td><td>@f.Claimed</td>
+                            <td>@Duration(f.MedianSecondsToOpen)</td><td>@Duration(f.MedianSecondsToClaim)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div>Bildirimsiz katılım (paylaşım, havuz listesi): <strong>@t.ClaimsWithoutNotification</strong> · 8 dakikadan geç gelen katılım: <strong>@Percent(t.LateClaimShare)</strong></div>
+        <div>"Uygun değil": <strong>@t.Declines</strong> · "Gelmedi": <strong>@t.NoShows</strong> · op.gg açılışı: <strong>@t.ProfileOpens</strong> · Push servislerinin kabul ettiği: <strong>@t.PushAccepted</strong></div>
+        <div class="text-dim mt-1">"Açılan", bildirime ya da düğmesine dokunulunca sayılır; Safari'de ve sayfa açıkken gelen uyarılarda eksik kalabilir.</div>
+    </div>
+}
+
+<div class="section-title">Şikâyetler (@_reports.Count)</div>
 @if (_reports.Count == 0)
 {
     <div class="pb-card text-dim">Açık şikâyet yok.</div>
@@ -110,6 +137,7 @@
             return;
         }
 
+        _trial = await Stats.GetTrialAsync(Communities.Web, TimeSpan.FromDays(14));
         _reports = await Moderation.GetOpenReportsAsync();
         _listings = await Pre.GetOpenListingsAsync(Communities.Web);
         _accounts = await Moderation.GetRecentAccountsAsync();
@@ -120,6 +148,22 @@
     }
 
     private string Name(ulong userId) => _names.GetValueOrDefault(userId, $"#{userId}");
+
+    private TrialMetrics? _trial;
+
+    private static string SourceText(NotificationSource source) => source switch
+    {
+        NotificationSource.Pool => "Şu an müsaitim",
+        NotificationSource.Alert => "Bana haber ver",
+        NotificationSource.Newcomer => "Havuza yeni giren",
+        NotificationSource.AfterMatch => "Maç sonrası",
+        _ => source.ToString(),
+    };
+
+    private static string Duration(double? seconds) =>
+        seconds is not { } s ? "–" : s < 90 ? $"{s:0} sn" : $"{s / 60:0.#} dk";
+
+    private static string Percent(double? share) => share is not { } p ? "–" : $"%{p * 100:0}";
 
     private static string ReasonText(ReportReason reason) => reason switch
     {

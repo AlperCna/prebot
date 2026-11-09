@@ -163,6 +163,41 @@ public sealed partial class InviteLoginTests : IDisposable
     }
 
     [Fact]
+    public async Task Notification_buttons_and_profile_link_only_work_for_the_right_person()
+    {
+        var client = Client("flex-2026");
+        await LoginAsync(client, "Sahip", "flex-2026");
+        var services = _factories[^1].Services;
+        T Get<T>() where T : notnull => Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<T>(services);
+        var accounts = Get<PreBot.Core.Services.AccountService>();
+        var pre = Get<PreBot.Core.Services.PreService>();
+        var host = (await accounts.GetOrCreateAsync("invite", "sahip", "Sahip")).UserId;
+        var player = (await accounts.GetOrCreateAsync("invite", "oyuncu", "Oyuncu")).UserId;
+        await pre.SetRiotIdAsync(player, "Oyuncu#TR1");
+        var listing = (await pre.CreateListingAsync(
+            PreBot.Core.Domain.Communities.Web, PreBot.Core.Domain.Communities.Web, host,
+            PreBot.Core.Domain.Role.Support, PreBot.Core.Domain.Rank.Iron, PreBot.Core.Domain.Rank.Diamond, 2, null)).Listing!.Id;
+        var token = Uri.EscapeDataString(Get<PreBot.Web.Push.JoinTokens>().Create(listing, player));
+
+        // "Maçtayım, sonra" on the player's notification.
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/bildirim/oyundayim?t=forged", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync($"/api/bildirim/baska?t={token}", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/bildirim/oyundayim?t={token}", null)).StatusCode);
+        Assert.NotNull(await pre.GetInGameUntilAsync(player));
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/bildirim/acildi?t={token}", null)).StatusCode);
+
+        // The host opens the joiner's op.gg through the counting link; nobody outside the listing can.
+        await pre.TryClaimAsync(listing, player);
+        var opgg = await client.GetAsync($"/git/opgg/{listing}/{player}");
+        Assert.Equal(HttpStatusCode.Redirect, opgg.StatusCode);
+        Assert.Equal("https://op.gg/lol/summoners/tr/Oyuncu-TR1", opgg.Headers.Location!.ToString());
+
+        var stranger = _factories[^1].CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await LoginAsync(stranger, "Yabanci", "flex-2026");
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/git/opgg/{listing}/{player}")).StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_page_is_only_for_configured_admins()
     {
         var client = Client("flex-2026");

@@ -20,29 +20,59 @@ self.addEventListener('push', (event) => {
         renotify: true,
         requireInteraction: !!data.joinUrl,
         vibrate: [200, 100, 200],
-        data: { url: data.url || '/havuz', joinUrl: data.joinUrl || null, muteUrl: data.muteUrl || null },
-        // Action buttons work on Chrome/Edge/Firefox; Safari ignores them and just opens the listing.
-        actions: data.joinUrl
-            ? [{ action: 'join', title: 'Katıl' }, { action: data.muteUrl ? 'mute' : 'skip', title: data.muteUrl ? '1 saat sustur' : 'Geç' }]
-            : [],
+        data: {
+            url: data.url || '/havuz',
+            joinUrl: data.joinUrl || null,
+            muteUrl: data.muteUrl || null,
+            openedUrl: data.openedUrl || null,
+            inGameUrl: data.inGameUrl || null,
+        },
+        // Action buttons work on Chrome/Edge/Firefox (most show two); Safari ignores them and just opens the listing,
+        // where the same choices are buttons on the page.
+        actions: data.joinUrl ? listingActions(data) : [],
     };
 
     event.waitUntil(self.registration.showNotification(data.title || 'PreBot', options));
 });
 
+// Katıl first, then "in a match, tell me afterwards", then mute — as many as this browser can show.
+function listingActions(data) {
+    const actions = [{ action: 'join', title: 'Katıl' }];
+    if (data.inGameUrl) {
+        actions.push({ action: 'ingame', title: 'Maçtayım, sonra' });
+    }
+    if (data.muteUrl) {
+        actions.push({ action: 'mute', title: '1 saat sustur' });
+    }
+    const max = (self.Notification && Notification.maxActions) || 2;
+    return actions.slice(0, max);
+}
+
+const post = (url) => fetch(url, { method: 'POST' }).catch(() => {});
+
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const { url, joinUrl, muteUrl } = event.notification.data || {};
+    const { url, joinUrl, muteUrl, openedUrl, inGameUrl } = event.notification.data || {};
     if (event.action === 'skip') {
         return;
     }
 
     if (event.action === 'mute' && muteUrl) {
-        event.waitUntil(fetch(muteUrl, { method: 'POST' }).catch(() => {}));
+        event.waitUntil(post(muteUrl));
+        return;
+    }
+
+    if (event.action === 'ingame' && inGameUrl) {
+        event.waitUntil(post(inGameUrl));
         return;
     }
 
     const target = new URL(event.action === 'join' && joinUrl ? joinUrl : url || '/havuz', self.location.origin).href;
+
+    // Counted once on the server: did the player see it, and how long after it was sent?
+    if (openedUrl) {
+        event.waitUntil(post(openedUrl));
+    }
 
     event.waitUntil((async () => {
         const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

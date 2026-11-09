@@ -269,6 +269,56 @@ app.MapPost("/api/sustur", async (string t, JoinTokens tokens, PreService pre, A
     return Results.NoContent();
 }).RequireRateLimiting("auth").DisableAntiforgery();
 
+// Listing notification buttons: "opened" (trial measurement) and "Maçtayım, sonra". The service worker posts the
+// personal join token from the payload, so only the player it was sent to can act, and only on themselves.
+app.MapPost("/api/bildirim/{eylem}", async (string eylem, string t, JoinTokens tokens, PreService pre, AccountService accounts, LiveUpdates live) =>
+{
+    if (tokens.Read(t) is not { } claim)
+    {
+        return Results.BadRequest();
+    }
+
+    if (await accounts.FindAsync(claim.UserId) is null)
+    {
+        return Results.NoContent(); // a deleted account: nothing to record or create
+    }
+
+    switch (eylem)
+    {
+        case "acildi":
+            await pre.RecordNotificationOpenedAsync(claim.ListingId, claim.UserId);
+            break;
+        case "oyundayim":
+            await pre.ReportInGameAsync(claim.UserId, claim.ListingId);
+            live.PublishChanged();
+            break;
+        default:
+            return Results.BadRequest();
+    }
+
+    return Results.NoContent();
+}).DisableAntiforgery();
+
+// "op.gg" next to a joiner: counted (how often hosts check a stranger before inviting), then off to the stats
+// site. Only for people in that listing, and the address is built here from the joiner's Riot ID.
+app.MapGet("/git/opgg/{listingId:int}/{userId}", async (int listingId, ulong userId, HttpContext http, PreService pre) =>
+{
+    var view = await pre.GetListingViewAsync(listingId);
+    var me = http.User.GetUserId();
+    if (view is null || me is null || (view.Listing.HostUserId != me && view.ActiveSlots.All(s => s.UserId != me)))
+    {
+        return Results.NotFound();
+    }
+
+    if (PreBot.Core.Domain.ProfileLinks.OpGg(view.ActiveSlots.FirstOrDefault(s => s.UserId == userId)?.RiotId) is not { } url)
+    {
+        return Results.NotFound();
+    }
+
+    await pre.RecordAsync(PreBot.Core.Domain.MetricKind.ProfileOpened, listingId);
+    return Results.Redirect(url);
+}).RequireAuthorization();
+
 // Riot Developer Portal proves domain ownership with a text file at the site root (production key
 // application). Set Riot:VerificationCode to the code shown in the portal; nothing is served otherwise.
 if (app.Configuration["Riot:VerificationCode"] is { Length: > 0 } riotCode)

@@ -123,6 +123,26 @@ public sealed class PoolActions(
         return result;
     }
 
+    /// <summary>"Maçtayım, bitince haber ver": no notifications for a while, then this listing (or another) again.</summary>
+    public async Task<DateTime> ReportInGameAsync(ulong userId, int? listingId)
+    {
+        var until = await pre.ReportInGameAsync(userId, listingId);
+        live.PublishChanged();
+        return until;
+    }
+
+    /// <summary>"Maç bitti, hazırım": back early; a fitting open listing is offered right away.</summary>
+    public async Task MatchFinishedAsync(ulong userId)
+    {
+        var putOff = await pre.EndInGameAsync(userId);
+        if (await pre.MatchAfterMatchAsync(Web, userId, putOff) is { } wave)
+        {
+            await waves.DispatchAsync(wave);
+        }
+
+        live.PublishChanged();
+    }
+
     /// <summary>The host frees one seat: "Gelmedi" (no-show) or "Uygun değil" (declined, not held against them).</summary>
     public async Task<HostActionOutcome> ReleaseByHostAsync(int listingId, ulong hostUserId, ulong userId, SeatReleaseReason reason)
     {

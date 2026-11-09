@@ -99,7 +99,7 @@
                 @if (insider)
                 {
                     <span class="small text-dim ms-1">@Declared(slot)</span>
-                    <RiotIdBadge RiotId="@slot.RiotId" Hint="Riot ID kayıtlı değil, kendisine sor." ShowProfile="@isHost" />
+                    <RiotIdBadge RiotId="@slot.RiotId" Hint="Riot ID kayıtlı değil, kendisine sor." ProfileHref="@(isHost ? $"/git/opgg/{Id}/{slot.UserId}" : null)" />
                 }
                 @if (isHost && _noShows.GetValueOrDefault(slot.UserId) is var missed && missed > 0)
                 {
@@ -147,6 +147,14 @@
         }
     }
 
+    @if (isHost && active && _waiting.Count > 0)
+    {
+        <div class="small text-dim mt-2">
+            <Icon Name="clock" /> @_waiting.Count kişi maçta olduğunu söyledi; bitince bu ilanı ona yeniden göstereceğim
+            (en erken @Format.TimeLeft(_waiting.EarliestBackUtc!.Value) sonra). İlan o sırada kapanmışsa tekrar açabilirsin.
+        </div>
+    }
+
     @if (isHost && _view.ActiveSlots.Count > 0)
     {
         <div class="alert alert-info small mt-3 mb-0">
@@ -190,6 +198,10 @@
         @if (l.Status == ListingStatus.Open && !insider && !left)
         {
             <button class="btn btn-gold btn-lg" disabled="@(_busy || !Ready)" @onclick="JoinAsync">Katıl</button>
+            <button class="btn btn-outline-light" disabled="@(_busy || !Ready)" @onclick="InGameAsync"
+                    title="Şu an maçtaysan: yaklaşık 25 dakika bildirim gelmez, sonra bu ilan hâlâ açıksa ya da sana uyan başka biri varsa haber gelir.">
+                <Icon Name="clock" /> Maçtayım, bitince haber ver
+            </button>
         }
         @if (joined && l.Status is ListingStatus.Open or ListingStatus.Filled)
         {
@@ -272,6 +284,7 @@
     private ListingView? _view;
     private string? _viewerRiotId;
     private IReadOnlyDictionary<ulong, int> _noShows = new Dictionary<ulong, int>();
+    private (int Count, DateTime? EarliestBackUtc) _waiting;
     private bool _reportOpen;
     private bool _reportSent;
     private string _reportTarget = "";
@@ -303,6 +316,7 @@
             _noShows = _view.Listing.HostUserId == UserId
                 ? await Moderation.GetNoShowCountsAsync(_view.ActiveSlots.Select(s => s.UserId))
                 : new Dictionary<ulong, int>();
+            _waiting = _view.Listing.HostUserId == UserId ? await Pre.GetWaitingAfterMatchAsync(Id) : default;
         }
     }
 
@@ -372,6 +386,13 @@
         (null, { } role) => $"{TurkishNames.Of(role)} (beyan)",
         _ => "rank belirtmemiş",
     };
+
+    private Task InGameAsync() => RunAsync(async () =>
+    {
+        var until = await Actions.ReportInGameAsync(UserId, Id);
+        return $"Tamam, iyi oyunlar. {Format.TimeLeft(until)} boyunca ilan bildirimi göndermeyeceğim; sonra bu ilan hâlâ açıksa " +
+            "ya da sana uyan başka bir ilan varsa haber vereceğim. Erken biterse Havuz sayfasında \"Maç bitti, hazırım\"a bas.";
+    });
 
     private Task DeclineAsync(ulong userId) => RunAsync(async () =>
         (await Actions.ReleaseByHostAsync(Id, UserId, userId, SeatReleaseReason.HostDeclined)).Result switch

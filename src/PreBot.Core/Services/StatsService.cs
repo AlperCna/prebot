@@ -19,6 +19,24 @@ public sealed record StatsSummary(
     int SeatsTaken = 0,
     int NoShows = 0);
 
+/// <summary>One way of reaching players, from notification to seat.</summary>
+public sealed record SourceFunnel(
+    NotificationSource Source, int Sent, int Opened, int InGame, int Claimed,
+    double? MedianSecondsToOpen, double? MedianSecondsToClaim);
+
+/// <summary>
+/// Trial measurements for the operator: which way of reaching players fills seats, how fast people answer,
+/// whether players in a match are lost, and how often hosts check or turn down a joiner.
+/// </summary>
+public sealed record TrialMetrics(
+    IReadOnlyList<SourceFunnel> BySource,
+    int ClaimsWithoutNotification,
+    double? LateClaimShare,
+    int Declines,
+    int NoShows,
+    int ProfileOpens,
+    int PushAccepted);
+
 /// <summary>
 /// The numbers that decide whether PreBot solves the problem: how many "need 1 more" listings
 /// actually got filled, and how fast. Computed from the anonymous <see cref="MetricEvent"/> log, so
@@ -26,6 +44,60 @@ public sealed record StatsSummary(
 /// </summary>
 public sealed class StatsService(IDbContextFactory<PreBotDbContext> dbFactory, TimeProvider time)
 {
+    /// <summary>A join this long after the notification probably came from someone who was in a match.</summary>
+    public static readonly TimeSpan LateClaim = TimeSpan.FromMinutes(8);
+
+    public async Task<TrialMetrics> GetTrialAsync(ulong communityId, TimeSpan window, CancellationToken ct = default)
+    {
+        var since = time.GetUtcNow().UtcDateTime - window;
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var kinds = new[]
+        {
+            MetricKind.NotificationsSent, MetricKind.NotificationOpened, MetricKind.InGameReported, MetricKind.SeatClaimed,
+            MetricKind.SeatReleased, MetricKind.ProfileOpened, MetricKind.PushAccepted,
+        };
+        var events = await db.MetricEvents.AsNoTracking()
+            .Where(e => e.CommunityId == communityId && e.AtUtc >= since && kinds.Contains(e.Kind))
+            .ToListAsync(ct);
+
+        var bySource = Enum.GetValues<NotificationSource>().Select(source =>
+        {
+            var mine = events.Where(e => e.Source == source).ToList();
+            var opened = mine.Where(e => e.Kind == MetricKind.NotificationOpened).ToList();
+            var claimed = mine.Where(e => e.Kind == MetricKind.SeatClaimed).ToList();
+            return new SourceFunnel(
+                source,
+                mine.Where(e => e.Kind == MetricKind.NotificationsSent).Sum(e => e.Value ?? 0),
+                opened.Count,
+                mine.Count(e => e.Kind == MetricKind.InGameReported),
+                claimed.Count,
+                Median(opened.Select(e => e.SinceNotifiedSeconds)),
+                Median(claimed.Select(e => e.SinceNotifiedSeconds)));
+        }).ToList();
+
+        var notifiedClaims = events.Where(e => e.Kind == MetricKind.SeatClaimed && e.SinceNotifiedSeconds is not null).ToList();
+        return new TrialMetrics(
+            bySource,
+            events.Count(e => e.Kind == MetricKind.SeatClaimed && e.Source is null),
+            notifiedClaims.Count == 0 ? null : (double)notifiedClaims.Count(e => e.SinceNotifiedSeconds > LateClaim.TotalSeconds) / notifiedClaims.Count,
+            events.Count(e => e.Kind == MetricKind.SeatReleased && e.Reason == SeatReleaseReason.HostDeclined),
+            events.Count(e => e.Kind == MetricKind.SeatReleased && e.Reason == SeatReleaseReason.NoShow),
+            events.Count(e => e.Kind == MetricKind.ProfileOpened),
+            events.Where(e => e.Kind == MetricKind.PushAccepted).Sum(e => e.Value ?? 0));
+    }
+
+    private static double? Median(IEnumerable<int?> values)
+    {
+        var sorted = values.Where(v => v is not null).Select(v => (double)v!.Value).Order().ToList();
+        if (sorted.Count == 0)
+        {
+            return null;
+        }
+
+        var mid = sorted.Count / 2;
+        return sorted.Count % 2 == 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
     public async Task<StatsSummary> GetAsync(ulong communityId, TimeSpan window, CancellationToken ct = default)
     {
         var now = time.GetUtcNow().UtcDateTime;

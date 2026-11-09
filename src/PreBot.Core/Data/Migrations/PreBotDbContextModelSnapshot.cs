@@ -207,8 +207,14 @@ namespace PreBot.Core.Data.Migrations
                     b.Property<int>("ListingId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("OpenedAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("SentAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long>("UserId")
                         .HasColumnType("INTEGER");
@@ -319,6 +325,12 @@ namespace PreBot.Core.Data.Migrations
                     b.Property<int?>("Reason")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("SinceNotifiedSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Source")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int?>("Value")
                         .HasColumnType("INTEGER");
 
@@ -340,6 +352,12 @@ namespace PreBot.Core.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("ConsentedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("InGameListingId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("InGameUntilUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("MutedUntilUtc")

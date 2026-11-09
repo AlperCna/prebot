@@ -17,6 +17,80 @@ public sealed class StatsTests : IDisposable
         (await _t.Service.CreateListingAsync(Web, Web, host, Role.Support, Rank.Gold, Rank.Gold, 1, null)).Listing!.Id;
 
     [Fact]
+    public async Task Trial_measures_where_each_join_came_from_and_how_long_it_took()
+    {
+        const ulong host = 1, pooled = 10, shared = 11;
+        await _t.Service.SetAvailableAsync(Web, pooled, Role.Support, Rank.Gold, TimeSpan.FromHours(1));
+        var listing = (await _t.Service.CreateListingAsync(Web, Web, host, Role.Support, Rank.Gold, Rank.Gold, 2, null)).Listing!.Id;
+        Assert.Contains(pooled, (await _t.Service.RunNextWaveAsync(listing))!.UserIds);
+
+        _t.Time.Advance(TimeSpan.FromMinutes(2));
+        await _t.Service.RecordNotificationOpenedAsync(listing, pooled);
+        await _t.Service.RecordNotificationOpenedAsync(listing, pooled); // counted once
+        _t.Time.Advance(TimeSpan.FromMinutes(1));
+        await _t.Service.TryClaimAsync(listing, pooled);
+        await _t.Service.TryClaimAsync(listing, shared);                 // came through a shared link, never notified
+
+        var trial = await _stats.GetTrialAsync(Web, TimeSpan.FromDays(1));
+        var pool = trial.BySource.Single(f => f.Source == NotificationSource.Pool);
+        Assert.Equal((1, 1, 1), (pool.Sent, pool.Opened, pool.Claimed));
+        Assert.Equal(120, pool.MedianSecondsToOpen);
+        Assert.Equal(180, pool.MedianSecondsToClaim);
+        Assert.Equal(1, trial.ClaimsWithoutNotification);
+        Assert.Equal(0, trial.LateClaimShare);
+    }
+
+    [Fact]
+    public async Task Player_in_a_match_is_skipped_and_offered_the_listing_again_afterwards()
+    {
+        const ulong host = 1, gamer = 20, alertOnly = 21;
+        await _t.Service.SetAvailableAsync(Web, gamer, Role.Support, Rank.Gold, TimeSpan.FromHours(2));
+        await using (var db = _t.NewContext())
+        {
+            db.AlertSubscriptions.Add(new AlertSubscription
+            {
+                CommunityId = Web, UserId = alertOnly, Role = Role.Support, Rank = Rank.Gold,
+                FromHour = 0, ToHour = 0, Enabled = true, CreatedAtUtc = _t.Time.GetUtcNow().UtcDateTime,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var listing = (await _t.Service.CreateListingAsync(Web, Web, host, Role.Support, Rank.Gold, Rank.Gold, 2, null)).Listing!.Id;
+        Assert.Contains(gamer, (await _t.Service.RunNextWaveAsync(listing))!.UserIds);
+
+        // "Maçtayım" from the notification: quiet for a while, and the host can see someone is coming back.
+        var until = await _t.Service.ReportInGameAsync(gamer, listing);
+        Assert.Equal(_t.Time.GetUtcNow().UtcDateTime + PreService.InGameFor, until);
+        Assert.Equal(1, (await _t.Service.GetWaitingAfterMatchAsync(listing)).Count);
+        await _t.Service.ReportInGameAsync(alertOnly, listing);
+        _t.Time.Advance(TimeSpan.FromMinutes(5));
+        var next = await _t.Service.RunNextWaveAsync(listing);
+        Assert.DoesNotContain(gamer, next?.UserIds ?? []);
+        Assert.DoesNotContain(alertOnly, next?.UserIds ?? []);
+        Assert.Empty(await _t.Service.TakeFinishedMatchesAsync()); // not over yet
+
+        // The match ends early ("Maç bitti"): the same listing comes back, marked as an after-match notification.
+        Assert.Equal(listing, await _t.Service.EndInGameAsync(gamer));
+        var again = await _t.Service.MatchAfterMatchAsync(Web, gamer, listing);
+        Assert.Equal(listing, again!.ListingId);
+        Assert.Equal([gamer], again.UserIds);
+
+        // The other one waits out the timer. By then the listing has usually expired (15 minutes), so the most
+        // urgent listing that fits is offered instead; a "Bana haber ver" subscriber is matched on that setting.
+        _t.Time.Advance(PreService.InGameFor);
+        var finished = Assert.Single(await _t.Service.TakeFinishedMatchesAsync());
+        Assert.Equal((alertOnly, (int?)listing), finished);
+        Assert.Empty(await _t.Service.TakeFinishedMatchesAsync()); // handed out once
+        await _t.Service.SweepAsync();
+        var fresh = (await _t.Service.CreateListingAsync(Web, Web, 2, Role.Support, Rank.Silver, Rank.Platinum, 1, null)).Listing!.Id;
+        Assert.Equal(fresh, (await _t.Service.MatchAfterMatchAsync(Web, alertOnly, finished.ListingId))!.ListingId);
+
+        var trial = await _stats.GetTrialAsync(Web, TimeSpan.FromDays(1));
+        Assert.Equal(1, trial.BySource.Single(f => f.Source == NotificationSource.Pool).InGame);
+        Assert.Equal(2, trial.BySource.Single(f => f.Source == NotificationSource.AfterMatch).Sent);
+    }
+
+    [Fact]
     public async Task Empty_community_has_no_rates()
     {
         var s = await _stats.GetAsync(Web, TimeSpan.FromDays(7));

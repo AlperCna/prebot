@@ -22,6 +22,21 @@
     <PushToggle UserId="UserId" Compact="true" />
 </div>
 
+@if (_inGameUntil is { } inGameUntil)
+{
+    <div class="pb-card">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <div class="fw-semibold"><Icon Name="clock" /> Maçtasın</div>
+                <div class="text-dim small">
+                    @Format.TimeLeft(inGameUntil) boyunca ilan bildirimi göndermiyorum; sonra sana uyan açık bir ilan varsa haber vereceğim.
+                </div>
+            </div>
+            <button class="btn btn-sm btn-gold" disabled="@(_busy || !Ready)" @onclick="MatchFinishedAsync">Maç bitti, hazırım</button>
+        </div>
+    </div>
+}
+
 @if (_availability is { } a)
 {
     <div class="pb-card status-live">
@@ -139,12 +154,14 @@ else
     private Role _role = Role.Support;
     private Rank _rank = Rank.Gold;
     private int _minutes = 60;
+    private DateTime? _inGameUntil;
     private bool _busy;
     private string? _message;
 
     protected override async Task LoadAsync()
     {
         _availability = await Pre.GetAvailabilityAsync(Communities.Web, UserId);
+        _inGameUntil = await Pre.GetInGameUntilAsync(UserId);
         _riotId = await Pre.GetRiotIdAsync(UserId);
         _pushDevices = await Subscriptions.CountPushDevicesAsync(UserId);
         _alertOn = (await Subscriptions.GetAlertAsync(Communities.Web, UserId))?.Enabled == true;
@@ -168,6 +185,14 @@ else
     {
         _busy = true;
         await Actions.SetAvailableAsync(UserId, role, rank, TimeSpan.FromMinutes(minutes));
+        await LoadAsync();
+        _busy = false;
+    }
+
+    private async Task MatchFinishedAsync()
+    {
+        _busy = true;
+        await Actions.MatchFinishedAsync(UserId);
         await LoadAsync();
         _busy = false;
     }

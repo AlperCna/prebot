@@ -23,6 +23,24 @@ public sealed class JoinTokenTests
     }
 
     [Fact]
+    public void Token_tells_its_listing_and_user_for_the_notification_buttons()
+    {
+        var token = _tokens.Create(7, 42);
+
+        Assert.Equal((7, 42UL), _tokens.Read(token));
+        Assert.Null(_tokens.Read("forged"));
+        Assert.Null(_tokens.Read(null));
+        Assert.Null(_tokens.Read(_tokens.CreateMute(42))); // a mute token is not a listing token
+
+        var payload = PushSender.ForListing(7, Role.Support, Rank.Gold, Rank.Gold, 1, token);
+        Assert.StartsWith("/api/bildirim/acildi?t=", payload.OpenedUrl);
+        Assert.StartsWith("/api/bildirim/oyundayim?t=", payload.InGameUrl);
+
+        _time.Advance(JoinTokens.Lifetime + TimeSpan.FromMinutes(1));
+        Assert.Null(_tokens.Read(token));
+    }
+
+    [Fact]
     public void Missing_forged_or_expired_tokens_are_rejected()
     {
         var token = _tokens.Create(7, 42);

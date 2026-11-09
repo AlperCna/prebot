@@ -24,6 +24,12 @@ public sealed class Player
 
     /// <summary>"Don't notify me until ..." (null = not muted). Host updates about their own listing still arrive.</summary>
     public DateTime? MutedUntilUtc { get; set; }
+
+    /// <summary>"Maçtayım, bitince haber ver": no listing notifications until then, then a fitting listing again.</summary>
+    public DateTime? InGameUntilUtc { get; set; }
+
+    /// <summary>The listing they were looking at when they said it (offered first after the match).</summary>
+    public int? InGameListingId { get; set; }
 }
 
 /// <summary>"I'm free right now" entry. One per user per server; disappears on its own when it expires.</summary>
@@ -113,6 +119,12 @@ public sealed class MetricEvent
     public int? Value { get; set; }
 
     public SeatReleaseReason? Reason { get; set; }
+
+    /// <summary>For notification and seat events: how the player heard about the listing (null = not notified).</summary>
+    public NotificationSource? Source { get; set; }
+
+    /// <summary>For opened / in-game / seat events: seconds since that player was notified.</summary>
+    public int? SinceNotifiedSeconds { get; set; }
 }
 
 /// <summary>A website login. Its <see cref="Id"/> is the user id used everywhere else for website users.</summary>
@@ -166,6 +178,11 @@ public sealed class ListingNotification
     public ulong UserId { get; set; }
     public int Wave { get; set; }
     public DateTime SentAtUtc { get; set; }
+
+    public NotificationSource Source { get; set; }
+
+    /// <summary>When the player first opened the notification (null = not yet, or not measurable).</summary>
+    public DateTime? OpenedAtUtc { get; set; }
 }
 
 /// <summary>A browser/device that agreed to receive push notifications (Web Push). A user can have several.</summary>
