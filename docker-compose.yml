@@ -24,6 +24,8 @@ services:
       PublicUrl: https://${DOMAIN}
       # Only Caddy (on this fixed network) may set X-Forwarded-For / X-Forwarded-Proto.
       ReverseProxy__KnownNetworks: 172.30.0.0/24
+      # Optional dead-man's switch for the nightly backup (e.g. a Healthchecks.io ping URL).
+      Backup__HeartbeatUrl: ${BACKUP_HEARTBEAT_URL:-}
     volumes:
       - prebot-data:/data
     expose:

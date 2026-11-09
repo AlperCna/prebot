@@ -63,6 +63,14 @@ else
 }
 builder.Services.AddHostedService<PoolWorker>();
 
+// Nightly backup at 05:00 Turkey time (database + cookie keys + push key). Off in Development.
+builder.Services.AddHttpClient("heartbeat", c => c.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddSingleton<PreBot.Web.Ops.BackupRunner>();
+if (builder.Configuration.GetValue("Backup:Enabled", !builder.Environment.IsDevelopment()))
+{
+    builder.Services.AddHostedService<PreBot.Web.Ops.BackupScheduler>();
+}
+
 // ---------- Auth: cookie session; providers (Google, Discord) sign in through it ----------
 var auth = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o =>
