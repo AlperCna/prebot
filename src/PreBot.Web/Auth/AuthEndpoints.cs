@@ -49,7 +49,7 @@ public static class AuthEndpoints
                 RedirectUri = $"/auth/callback?provider={p.Name}&returnUrl={Uri.EscapeDataString(SafeReturnUrl(returnUrl))}",
             };
             return Results.Challenge(properties, [p.Scheme]);
-        });
+        }).RequireRateLimiting("auth");
 
         // ...and back here once they confirmed who they are.
         app.MapGet("/auth/callback", async (HttpContext http, AccountService accounts, ExternalProviders providers, string? provider, string? returnUrl) =>
@@ -62,7 +62,7 @@ public static class AuthEndpoints
             }
 
             return await ExternalLogin.CompleteAsync(http, result.Principal, p.Name, accounts, returnUrl);
-        });
+        }).RequireRateLimiting("auth");
 
         app.MapGet("/auth/logout", async (HttpContext http) =>
         {

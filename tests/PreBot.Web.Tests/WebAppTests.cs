@@ -116,6 +116,25 @@ public sealed partial class WebAppTests : IDisposable
     }
 
     [Fact]
+    public async Task Login_endpoints_are_rate_limited_per_ip()
+    {
+        var client = Client();
+
+        for (var i = 0; i < 20; i++)
+        {
+            var ok = await client.GetAsync("/auth/login/google");
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, ok.StatusCode);
+        }
+
+        var limited = await client.GetAsync("/auth/login/google");
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.True(limited.Headers.Contains("Retry-After"));
+
+        // Normal pages are not affected by the login limit.
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/")).StatusCode);
+    }
+
+    [Fact]
     public async Task Unknown_page_shows_turkish_not_found()
     {
         var response = await Client().GetAsync("/boyle-bir-sayfa-yok");

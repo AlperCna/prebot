@@ -2,6 +2,7 @@
 @inject VapidKeys Keys
 @inject SubscriptionService Subscriptions
 @inject PushSender Sender
+@inject ActionLimiter Limiter
 
 @if (_state is null)
 {
@@ -177,6 +178,12 @@
 
     private async Task TestAsync()
     {
+        if (!Limiter.TryAcquire(LimitedAction.TestPush, UserId, out var wait))
+        {
+            (_ok, _message) = (false, ActionLimiter.RetryMessage(wait));
+            return;
+        }
+
         _busy = true;
         var sent = await Sender.SendTestAsync(UserId);
         (_ok, _message) = sent > 0

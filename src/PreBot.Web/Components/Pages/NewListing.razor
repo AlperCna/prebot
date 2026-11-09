@@ -94,6 +94,12 @@
         var result = await Actions.CreateListingAsync(UserId, _role, _min, _max, _slots, _note);
         _busy = false;
 
+        if (result.RetryAfter is { } wait)
+        {
+            _message = ActionLimiter.RetryMessage(wait);
+            return;
+        }
+
         if (result.Listing is null)
         {
             _message = $"Zaten açık bir ilanın var. <a href=\"/ilan/{result.ExistingOpenListingId}\">Ona git</a> ya da önce kapat.";

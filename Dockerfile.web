@@ -20,7 +20,6 @@ RUN mkdir -p /data && chown $APP_UID /data
 USER $APP_UID
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_HTTP_PORTS=8080 \
-    ASPNETCORE_FORWARDEDHEADERS_ENABLED=true \
     DataDirectory=/data
 VOLUME /data
 EXPOSE 8080

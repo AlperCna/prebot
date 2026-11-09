@@ -16,6 +16,7 @@ public sealed class PoolActions(
     LiveUpdates live,
     IListingFeed feed,
     HostNotifier host,
+    ActionLimiter limiter,
     ILogger<PoolActions> logger)
 {
     private const ulong Web = Communities.Web;
@@ -35,6 +36,11 @@ public sealed class PoolActions(
 
     public async Task<CreateListingResult> CreateListingAsync(ulong hostUserId, Role role, Rank min, Rank max, int slots, string? note)
     {
+        if (!limiter.TryAcquire(LimitedAction.CreateListing, hostUserId, out var retryAfter))
+        {
+            return new CreateListingResult(null, null, 0, retryAfter);
+        }
+
         var result = await pre.CreateListingAsync(Web, Web, hostUserId, role, min, max, slots, note);
         if (result.Listing is not null)
         {
@@ -49,6 +55,11 @@ public sealed class PoolActions(
 
     public async Task<ClaimOutcome> ClaimAsync(int listingId, ulong userId)
     {
+        if (!limiter.TryAcquire(LimitedAction.Join, userId, out var retryAfter))
+        {
+            return new ClaimOutcome(ClaimResult.RateLimited, RetryAfter: retryAfter);
+        }
+
         var outcome = await pre.TryClaimAsync(listingId, userId);
         if (outcome.Result is ClaimResult.Claimed or ClaimResult.ClaimedAndFilled)
         {

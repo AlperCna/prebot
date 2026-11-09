@@ -44,6 +44,9 @@ public enum ClaimResult
     NotOpen,
     IsHost,
     NotFound,
+
+    /// <summary>Too many joins in a short time (see <c>ActionLimiter</c>).</summary>
+    RateLimited,
 }
 
 public enum LeaveResult

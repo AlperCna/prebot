@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using PreBot.Bot;
 using PreBot.Core.Data;
@@ -34,6 +36,7 @@ builder.Services.AddSingleton<AccountService>();
 builder.Services.AddSingleton<AnnouncementStore>();
 builder.Services.AddSingleton<StatsService>();
 builder.Services.AddSingleton<WaveDispatcher>();
+builder.Services.AddSingleton<ActionLimiter>();
 
 // ---------- Live updates & notifications ----------
 builder.Services.AddSingleton<LiveUpdates>();
@@ -94,11 +97,55 @@ builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// ---------- Reverse proxy (Caddy) ----------
+// Trust X-Forwarded-For/Proto only from the proxy's own network, so the client IP (used by rate limits and
+// logs) and https scheme are real and cannot be faked by a header. ReverseProxy:KnownNetworks is a comma
+// separated list of CIDRs, e.g. the fixed Docker network in docker-compose.yml. Loopback is always trusted.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var cidr in (builder.Configuration["ReverseProxy:KnownNetworks"] ?? "")
+                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(cidr));
+    }
+});
+
+// ---------- HTTP rate limits (per client IP) ----------
+// Generous on purpose: Turkish mobile carriers put many players behind one IP (CGNAT).
+// Button clicks inside live pages don't pass through here; ActionLimiter covers those per user.
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.OnRejected = (context, _) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
+        }
+
+        context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("RateLimit")
+            .LogWarning("Rate limit hit: {Path} from {Ip}", context.HttpContext.Request.Path, context.HttpContext.Connection.RemoteIpAddress);
+        return ValueTask.CompletedTask;
+    };
+    o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 600, Window = TimeSpan.FromMinutes(1) }));
+    o.AddPolicy("auth", http =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+});
+
 // /health: used by Docker to know the site is alive and the database answers.
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 // Create or upgrade the database schema (EF Core migrations), then enable WAL.
 await DatabaseSetup.MigrateAsync(
@@ -114,6 +161,7 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();

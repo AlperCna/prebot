@@ -2,11 +2,12 @@ using PreBot.Core.Domain;
 
 namespace PreBot.Core.Services;
 
-public sealed record CreateListingResult(Listing? Listing, int? ExistingOpenListingId, int PotentialMatches);
+/// <param name="RetryAfter">Set when the host opened too many listings recently; the listing was not created.</param>
+public sealed record CreateListingResult(Listing? Listing, int? ExistingOpenListingId, int PotentialMatches, TimeSpan? RetryAfter = null);
 
 public sealed record WaveResult(int ListingId, int Wave, IReadOnlyList<ulong> UserIds);
 
-public sealed record ClaimOutcome(ClaimResult Result, ulong HostUserId = 0);
+public sealed record ClaimOutcome(ClaimResult Result, ulong HostUserId = 0, TimeSpan RetryAfter = default);
 
 public sealed record SweepResult(int ExpiredAvailabilities, IReadOnlyList<int> ExpiredListingIds);
 

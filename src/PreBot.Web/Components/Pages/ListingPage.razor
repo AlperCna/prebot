@@ -227,13 +227,17 @@
     }
 
     private Task JoinAsync() => RunAsync(async () =>
-        (await Actions.ClaimAsync(Id, UserId)).Result switch
+    {
+        var outcome = await Actions.ClaimAsync(Id, UserId);
+        return outcome.Result switch
         {
             ClaimResult.Claimed or ClaimResult.ClaimedAndFilled => null,
+            ClaimResult.RateLimited => ActionLimiter.RetryMessage(outcome.RetryAfter),
             ClaimResult.Full => "Biri senden önce davrandı, kadro doldu.",
             ClaimResult.AlreadyJoined => "Bu ilandan daha önce ayrıldın, tekrar katılamazsın.",
             _ => "Bu ilan artık açık değil.",
-        });
+        };
+    });
 
     private Task LeaveAsync() => RunAsync(async () =>
         await Actions.LeaveAsync(Id, UserId) == LeaveResult.Left ? null : "Bu ilanda yerin yok.");
@@ -258,9 +262,12 @@
             return;
         }
 
-        _message = result.ExistingOpenListingId is int open
-            ? $"Zaten açık bir ilanın var (#{open}). Önce onu kapat."
-            : "Bu ilan tekrar açılamadı.";
+        _message = result switch
+        {
+            { RetryAfter: { } wait } => ActionLimiter.RetryMessage(wait),
+            { ExistingOpenListingId: int open } => $"Zaten açık bir ilanın var (#{open}). Önce onu kapat.",
+            _ => "Bu ilan tekrar açılamadı.",
+        };
     }
 
     private async Task CopyLinkAsync()
