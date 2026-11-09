@@ -17,7 +17,11 @@ var builder = WebApplication.CreateBuilder(args);
 // One JSON object per log line in production: easy to search and to ship to a log tool later.
 if (!builder.Environment.IsDevelopment())
 {
-    builder.Logging.AddJsonConsole(o => o.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ ");
+    builder.Logging.AddJsonConsole(o =>
+    {
+        o.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+        o.UseUtcTimestamp = true;
+    });
 }
 
 // ---------- Data folder ----------
@@ -164,6 +168,7 @@ app.UseForwardedHeaders();
 
 // Security headers. The CSP is report-only for now: violations show in the browser console without
 // breaking anything; switch to enforcing once a week of real use shows none (HSTS is set by Caddy).
+// Known report today: Blazor's inline <script type="importmap"> needs its sha256 hash in script-src first.
 app.Use(async (context, next) =>
 {
     var headers = context.Response.Headers;

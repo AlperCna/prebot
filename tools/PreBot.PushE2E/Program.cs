@@ -92,7 +92,7 @@ try
     async Task LoginAsync(Tab tab, string name, string returnUrl)
     {
         await tab.NavigateAsync($"{baseUrl}/giris?returnUrl={Uri.EscapeDataString(returnUrl)}");
-        await tab.EvalAsync($"document.querySelector('input[name=name]').value = '{name}'; document.querySelector('form').submit(); true");
+        await tab.EvalAsync($"document.querySelector('input[name=name]').value = '{name}'; document.querySelector('form[action=\"/auth/dev-login\"]').submit(); true");
         await tab.WaitForAsync($"location.pathname === '{returnUrl}'", TimeSpan.FromSeconds(15));
     }
 
@@ -136,7 +136,7 @@ try
         await player.WaitForTextAsync("Havuzdasın");
     });
 
-    await Step("Başka bir oyuncu ilan açar (Destek, Altın–Platin)", async () =>
+    await Step("Başka bir oyuncu ilan açar (Destek)", async () =>
     {
         await LoginAsync(host, $"E2E Host {run}", "/ilan-ac");
         await host.WaitForTextAsync("İlanı aç ve haber ver");
