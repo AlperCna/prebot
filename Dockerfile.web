@@ -11,7 +11,7 @@ COPY src/PreBot.Discord/ src/PreBot.Discord/
 COPY src/PreBot.Web/ src/PreBot.Web/
 RUN dotnet publish src/PreBot.Web/PreBot.Web.csproj -c Release -o /app --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+FROM mcr.microsoft.com/dotnet/aspnet:11.0
 # curl only for the container health check.
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
